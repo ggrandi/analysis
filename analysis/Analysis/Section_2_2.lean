@@ -374,6 +374,8 @@ revert a; apply induction
 · intro a ih
   apply le_trans ih ⟨1, succ_eq_add_one a⟩
 
+lemma Nat.gt_zero (h : (n : Nat).IsPos) : n > 0 := ⟨zero_le _, h.symm⟩
+
 /-- Proposition 2.2.13 (Trichotomy of order for natural numbers) / Exercise 2.2.4
   Compare with Mathlib's `trichotomous`.  Parts of this theorem have been placed
   in the preceding Lean theorems. -/
