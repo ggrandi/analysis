@@ -3,6 +3,9 @@
 Heya, I have been going through the exercises and trying to fill in all the
 `sorry`s. Here is the ones I have completed so far:
 
+- Chapter 2:
+  - Section 2.2
+
 # Lean formalization of _Analysis I_
 
 The files in this directory contain a formalization of my text [_Analysis I_](https://terrytao.wordpress.com/books/analysis-i/) into [Lean](https://lean-lang.org/). The formalization is intended to be as faithful a paraphrasing as possible to the original text, while also showcasing Lean's features and syntax.  In particular, the formalization is _not_ optimized for efficiency, and in some cases may deviate from idiomatic Lean usage.
