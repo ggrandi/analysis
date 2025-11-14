@@ -266,14 +266,14 @@ theorem SetTheory.Set.pair_self (a:Object) : ({a,a}:Set) = {a} := by
 
 /-- Exercise 3.1.1 -/
 theorem SetTheory.Set.pair_eq_pair {a b c d:Object} (h: ({a,b}:Set) = {c,d}) :
-    a = c ∧ b = d ∨ a = d ∧ b = c := by sorry
-  /- This is a proof but it makes the code take an extra second to run -/
-  /- have h: ∀ x, x ∈ ({a,b}: Set) ↔ x ∈ ({c,d}: Set) := Set.ext_iff.mp h -/
-  /- have ha: a = c ∨ a = d := h a |>.mp ((mem_pair ..).mpr (Or.inl rfl)) |> (mem_pair ..).mp -/
-  /- have hb: b = c ∨ b = d := h b |>.mp ((mem_pair ..).mpr (Or.inr rfl)) |> (mem_pair ..).mp -/
-  /- have hc: c = a ∨ c = b := h c |>.mpr ((mem_pair ..).mpr (Or.inl rfl)) |> (mem_pair ..).mp -/
-  /- have hd: d = a ∨ d = b := h d |>.mpr ((mem_pair ..).mpr (Or.inr rfl)) |> (mem_pair ..).mp -/
-  /- tauto -/
+    a = c ∧ b = d ∨ a = d ∧ b = c := by
+  -- This is a proof but it makes the code take an extra second to run
+  have h: ∀ x, x ∈ ({a,b}: Set) ↔ x ∈ ({c,d}: Set) := Set.ext_iff.mp h
+  have ha: a = c ∨ a = d := h a |>.mp ((mem_pair ..).mpr (Or.inl rfl)) |> (mem_pair ..).mp
+  have hb: b = c ∨ b = d := h b |>.mp ((mem_pair ..).mpr (Or.inr rfl)) |> (mem_pair ..).mp
+  have hc: c = a ∨ c = b := h c |>.mpr ((mem_pair ..).mpr (Or.inl rfl)) |> (mem_pair ..).mp
+  have hd: d = a ∨ d = b := h d |>.mpr ((mem_pair ..).mpr (Or.inr rfl)) |> (mem_pair ..).mp
+  tauto
 
 abbrev SetTheory.Set.empty : Set := ∅
 abbrev SetTheory.Set.singleton_empty : Set := {(empty: Object)}
@@ -1010,7 +1010,7 @@ theorem SetTheory.Set.specification_from_replacement {A:Set} {P: A → Prop} :
       rw [replacement_axiom]
       unfold P'
       refine ⟨fun ⟨x', hx'⟩ => ?_, fun hx => ⟨x, hx, rfl⟩⟩
-      obtain ⟨rfl⟩ := Subtype.eq hx'.right
+      obtain ⟨rfl⟩ := Subtype.ext hx'.right
       exact hx'.left
 
 /-- Exercise 3.1.12.-/
@@ -1109,38 +1109,63 @@ theorem SetTheory.Set.mem_coe (X:Set) (x:Object) : x ∈ (X : _root_.Set Object)
   simp
 
 /-- Compatibility of the emptyset -/
-theorem SetTheory.Set.coe_empty : ((∅:Set) : _root_.Set Object) = ∅ := by sorry
+theorem SetTheory.Set.coe_empty : ((∅:Set) : _root_.Set Object) = ∅ := by 
+  ext x
+  simp
 
 /-- Compatibility of subset -/
 theorem SetTheory.Set.coe_subset (X Y:Set) :
-    (X : _root_.Set Object) ⊆ (Y : _root_.Set Object) ↔ X ⊆ Y := by sorry
+    (X : _root_.Set Object) ⊆ (Y : _root_.Set Object) ↔ X ⊆ Y := by
+  constructor
+  · intro h x
+    simp [_root_.Set.subset_def] at h
+    exact fun hX => h _ hX
+  · intro h x
+    simp
+    exact fun hX => h _ hX
 
 theorem SetTheory.Set.coe_ssubset (X Y:Set) :
-    (X : _root_.Set Object) ⊂ (Y : _root_.Set Object) ↔ X ⊂ Y := by sorry
+    (X : _root_.Set Object) ⊂ (Y : _root_.Set Object) ↔ X ⊂ Y := by
+  constructor
+  · intro h
+    simp [_root_.Set.ssubset_def] at h
+    refine ⟨fun x hx => h.left _ hx, ?_⟩ 
+    obtain ⟨x, hX, hY⟩ := h.right
+    exact ne_of_mem_of_not_mem' hX hY |>.symm
+  · intro ⟨hXY, hnXY⟩
+    rw [ssubset_iff_subset_ne]
+    exact ⟨coe_subset _ _ |>.mpr hXY, fun h => coe_inj' _ _ |>.mp h |> hnXY⟩
 
 /-- Compatibility of singleton -/
-theorem SetTheory.Set.coe_singleton (x: Object) : (({x}:Set) : _root_.Set Object) = {x} := by sorry
+theorem SetTheory.Set.coe_singleton (x: Object) : (({x}:Set) : _root_.Set Object) = {x} := by
+  simp only [mem_singleton, Set.setOf_eq_eq_singleton]
 
 /-- Compatibility of union -/
 theorem SetTheory.Set.coe_union (X Y: Set) :
-    ((X ∪ Y:Set) : _root_.Set Object) = (X : _root_.Set Object) ∪ (Y : _root_.Set Object) := by sorry
+    ((X ∪ Y:Set) : _root_.Set Object) = (X : _root_.Set Object) ∪ (Y : _root_.Set Object) := by
+      ext x; simp
 
 /-- Compatibility of pair -/
-theorem SetTheory.Set.coe_pair (x y: Object) : (({x, y}:Set) : _root_.Set Object) = {x, y} := by sorry
+theorem SetTheory.Set.coe_pair (x y: Object) : (({x, y}:Set) : _root_.Set Object) = {x, y} := by
+  ext x; simp
 
 /-- Compatibility of subtype -/
-theorem SetTheory.Set.coe_subtype (X: Set) :  (X : _root_.Set Object) = X.toSubtype := by sorry
+theorem SetTheory.Set.coe_subtype (X: Set) :  (X : _root_.Set Object) = X.toSubtype := rfl
 
 /-- Compatibility of intersection -/
 theorem SetTheory.Set.coe_intersection (X Y: Set) :
-    ((X ∩ Y:Set) : _root_.Set Object) = (X : _root_.Set Object) ∩ (Y : _root_.Set Object) := by sorry
+  ((X ∩ Y:Set) : _root_.Set Object) = (X : _root_.Set Object) ∩ (Y : _root_.Set Object) := by
+    ext x; simp
 
 /-- Compatibility of set difference-/
 theorem SetTheory.Set.coe_diff (X Y: Set) :
-    ((X \ Y:Set) : _root_.Set Object) = (X : _root_.Set Object) \ (Y : _root_.Set Object) := by sorry
+  ((X \ Y:Set) : _root_.Set Object) = (X : _root_.Set Object) \ (Y : _root_.Set Object) := by
+    ext x; simp
 
 /-- Compatibility of disjointness -/
 theorem SetTheory.Set.coe_Disjoint (X Y: Set) :
-    Disjoint (X : _root_.Set Object) (Y : _root_.Set Object) ↔ Disjoint X Y := by sorry
+  Disjoint (X : _root_.Set Object) (Y : _root_.Set Object) ↔ Disjoint X Y := by
+  simp [disjoint_iff, _root_.Set.disjoint_iff, _root_.Set.eq_empty_iff_forall_notMem,
+    eq_empty_iff_forall_notMem]
 
 end Chapter3

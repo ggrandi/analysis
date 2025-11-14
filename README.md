@@ -4,6 +4,8 @@ Heya, I have been going through the exercises and trying to fill in all the
 `sorry`s. Here is the ones I have completed so far:
 
 - All of Chapter 2
+- Chapter 3:
+  - Section 3.1
 
 
 # Lean formalization of _Analysis I_
