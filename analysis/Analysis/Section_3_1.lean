@@ -677,6 +677,16 @@ example (A B: Set) : Prop := Disjoint A B
 theorem SetTheory.Set.disjoint_iff (A B:Set) : Disjoint A B ↔ A ∩ B = ∅ := by
   convert _root_.disjoint_iff
 
+theorem SetTheory.Set.not_disjoint_iff (A B:Set) : ¬Disjoint A B ↔ ∃x, x ∈ A ∧ x ∈ B := by
+  apply Iff.not_left
+  rw [disjoint_iff]
+  push_neg
+  refine ⟨fun h => ?_, fun h => Set.ext_iff.mpr ?_⟩ 
+  · simp [Set.ext_iff] at h
+    exact h
+  · simp
+    exact h
+
 abbrev SetTheory.Set.replace (A:Set) {P: A → Object → Prop}
   (hP : ∀ x y y', P x y ∧ P x y' → y = y') : Set := SetTheory.replace A P hP
 

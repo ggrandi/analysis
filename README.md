@@ -6,6 +6,7 @@ Heya, I have been going through the exercises and trying to fill in all the
 - All of Chapter 2
 - Chapter 3:
   - Section 3.1
+  - Section 3.2
 
 
 # Lean formalization of _Analysis I_
