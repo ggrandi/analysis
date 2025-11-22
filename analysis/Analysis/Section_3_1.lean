@@ -145,6 +145,16 @@ theorem SetTheory.Set.ext {X Y:Set} (h: ∀ x, x ∈ X ↔ x ∈ Y) : X = Y := e
 /- Axiom 3.2 (Equality of sets)-/
 #check SetTheory.Set.ext_iff
 
+theorem SetTheory.Set.not_eq_iff {X Y:Set} : X ≠ Y ↔ ∃x, x ∈ X ↔ x ∉ Y := by
+  apply Iff.not_left
+  rw [Set.ext_iff, not_exists]
+  constructor
+  · intro hx x
+    rw [not_iff]
+    apply Iff.not (hx x)
+  · intro hx x
+    apply not_iff_not.mp <| not_iff.mp (hx x)
+
 instance SetTheory.Set.instEmpty : EmptyCollection Set where
   emptyCollection := emptyset
 
@@ -695,6 +705,14 @@ abbrev SetTheory.Set.replace (A:Set) {P: A → Object → Prop}
 theorem SetTheory.Set.replacement_axiom {A:Set} {P: A → Object → Prop}
   (hP: ∀ x y y', P x y ∧ P x y' → y = y') (y:Object) :
     y ∈ A.replace hP ↔ ∃ x, P x y := SetTheory.replacement_axiom A P hP y
+
+@[simp]
+theorem SetTheory.Set.replace_empty {P: (∅: Set) → Object → Prop}
+  (hP: ∀ x y y', P x y ∧ P x y' → y = y') :
+  (∅: Set).replace hP = ∅ := by
+    ext x
+    rw [replacement_axiom, iff_false_right (not_mem_empty _), not_exists]
+    exact fun x => absurd x.prop (not_mem_empty _) 
 
 abbrev Nat := SetTheory.nat
 
