@@ -145,15 +145,17 @@ theorem SetTheory.Set.ext {X Y:Set} (h: ∀ x, x ∈ X ↔ x ∈ Y) : X = Y := e
 /- Axiom 3.2 (Equality of sets)-/
 #check SetTheory.Set.ext_iff
 
-theorem SetTheory.Set.not_eq_iff {X Y:Set} : X ≠ Y ↔ ∃x, x ∈ X ↔ x ∉ Y := by
+theorem SetTheory.Set.not_eq_iff {X Y:Set} : X ≠ Y ↔ ∃x, x ∈ X ∧ x ∉ Y ∨ x ∉ X ∧ x ∈ Y := by
   apply Iff.not_left
   rw [Set.ext_iff, not_exists]
   constructor
+  · intro h x
+    push_neg
+    refine ⟨(h x |>.mp ·), ?_⟩ 
+    exact (· <| h x |>.mpr ·)
   · intro hx x
-    rw [not_iff]
-    apply Iff.not (hx x)
-  · intro hx x
-    apply not_iff_not.mp <| not_iff.mp (hx x)
+    push_neg at hx
+    refine ⟨hx x |>.left, hx x |>.right |> not_imp_not.mp⟩ 
 
 instance SetTheory.Set.instEmpty : EmptyCollection Set where
   emptyCollection := emptyset
@@ -216,6 +218,12 @@ example (x: Object) : {x} = SetTheory.singleton x := rfl
 @[simp]
 theorem SetTheory.Set.mem_singleton (x a:Object) : x ∈ ({a}:Set) ↔ x = a := singleton_axiom x a
 
+theorem SetTheory.Set.singleton_eq_iff {a b: Object} : ({a}: Set) = {b} ↔ a = b := by
+  simp_rw [Set.ext_iff, mem_singleton]
+  constructor
+  · exact fun h => h a |>.mp rfl
+  · rintro rfl x
+    rfl
 
 instance SetTheory.Set.instUnion : Union Set where
   union := union_pair
@@ -244,6 +252,28 @@ theorem SetTheory.Set.pair_eq (a b:Object) : ({a,b}:Set) = {a} ∪ {b} := by rfl
 @[simp]
 theorem SetTheory.Set.mem_pair (x a b:Object) : x ∈ ({a,b}:Set) ↔ (x = a ∨ x = b) := by
   simp [pair_eq, mem_union, mem_singleton]
+
+theorem SetTheory.Set.pair_eq_iff {a b c d: Object} : ({a, b}: Set) = {c, d} ↔ a = c ∧ b = d ∨ a = d ∧ b = c := by
+  simp_rw [Set.ext_iff, mem_pair]
+  constructor
+  · intro h
+    obtain rfl|rfl := h a |>.mp (Or.inl rfl)
+    <;> obtain rfl|rfl := h b |>.mp (Or.inr rfl)
+    <;> simp
+    · obtain rfl|rfl := h d |>.mpr (Or.inr rfl) <;> rfl
+    · obtain rfl|rfl := h c |>.mpr (Or.inl rfl) <;> rfl
+  · rintro (⟨rfl, rfl⟩|⟨rfl,rfl⟩) x
+    · rfl
+    · rw [or_comm]
+
+theorem SetTheory.Set.pair_eq_iff' {a b c: Object} : ({a, b}: Set) = {a, c} ↔ b = c := by
+  constructor
+  · intro h
+    obtain h|h := pair_eq_iff.mp h
+    exact h.right
+    exact Eq.trans h.right h.left
+  · rintro rfl
+    rfl
 
 @[simp]
 theorem SetTheory.Set.mem_triple (x a b c:Object) : x ∈ ({a,b,c}:Set) ↔ (x = a ∨ x = b ∨ x = c) := by
@@ -491,6 +521,20 @@ lemma SetTheory.Set.coe_inj (A:Set) (x y:A) : x.val = y.val ↔ x = y := Subtype
   (viewed as a subtype) corresponding to `x`.
 -/
 def SetTheory.Set.subtype_mk (A:Set) {x:Object} (hx:x ∈ A) : A := ⟨ x, hx ⟩
+
+theorem SetTheory.Set.subtype_pair {x y : Object} (z: ({x, y}: Set)): 
+    z = ⟨x, mem_pair _ _ _ |>.mpr (Or.inl rfl)⟩ ∨ z = ⟨y, mem_pair _ _ _ |>.mpr (Or.inr rfl)⟩ := by
+  obtain ⟨z, hz⟩ := z
+  simp_all only [Subtype.mk.injEq]
+  simp_all only [mem_pair]
+
+theorem SetTheory.Set.subtype_triple {x y z : Object} (a: ({x, y, z}: Set)): 
+    a = ⟨x, mem_triple _ _ _ _ |>.mpr (Or.inl rfl)⟩ ∨
+    a = ⟨y, mem_triple _ _ _ _ |>.mpr (Or.inr <| Or.inl rfl)⟩ ∨
+    a = ⟨z, mem_triple _ _ _ _ |>.mpr (Or.inr <| Or.inr rfl)⟩ := by
+  obtain ⟨a, ha⟩ := a
+  rw [mem_triple] at ha
+  simp [Subtype.mk.injEq, ha]
 
 @[simp]
 lemma SetTheory.Set.subtype_mk_coe {A:Set} {x:Object} (hx:x ∈ A) : A.subtype_mk hx = x := by rfl

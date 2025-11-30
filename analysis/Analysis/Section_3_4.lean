@@ -489,10 +489,7 @@ def SetTheory.Set.image_of_inter' : Decidable (∀ X Y:Set, ∀ f:X → Y, ∀ A
   use {0, 1, 2}, {0, 1}, f
   use {0, 1}, {1, 2}
   rw [
-    show ({0,1}: Set) ∩ {1,2} = {1} by
-      ext x
-      rw [pair_comm, mem_inter, mem_pair, mem_pair, mem_singleton, ← or_and_left, or_iff_left]
-      aesop,
+    show ({0,1}: Set) ∩ {1,2} = {1} by aesop,
     image_singleton h1,
     image_pair h0 h1,
     image_pair h1 h2,
@@ -504,10 +501,7 @@ def SetTheory.Set.image_of_inter' : Decidable (∀ X Y:Set, ∀ f:X → Y, ∀ A
     not_eq_iff
   ]
   use 0
-  apply iff_not_comm.mp
-  exact ⟨
-    fun _ hx => (show (0: Object) ≠ 1 by norm_num) <| mem_singleton _ _ |>.mp hx,
-    fun _ => mem_pair _ _ _ |>.mpr (Or.inr rfl)⟩ 
+  simp
 
 open Classical in
 def SetTheory.Set.image_of_diff' : Decidable (∀ X Y:Set, ∀ f:X → Y, ∀ A B: Set, image f (A \ B) = (image f A) \ (image f B)) := by
@@ -540,8 +534,8 @@ def SetTheory.Set.image_of_diff' : Decidable (∀ X Y:Set, ∀ f:X → Y, ∀ A 
     or_false, image_singleton, hf0, one_ne_zero, OfNat.one_ne_ofNat, or_true, image_pair, hf1,
     OfNat.ofNat_ne_zero, OfNat.ofNat_ne_one, hf2]
   rw [show ({0, 1}: Set) \ {1, 0} = {} by aesop, not_eq_iff]
-  refine ⟨0, fun _ => not_mem_empty _, fun _ => ?_⟩
-  exact mem_singleton _ _ |>.mpr rfl
+  use 0
+  simp
 
 /-- Exercise 3.4.4 -/
 theorem SetTheory.Set.preimage_of_inter {X Y:Set} (f:X → Y) (A B: Set) :
@@ -715,8 +709,8 @@ theorem SetTheory.Set.union_iUnion {I J:Set} (A: (I ∪ J:Set) → Set) :
 theorem SetTheory.Set.union_of_nonempty {I J:Set} (hI: I ≠ ∅) : I ∪ J ≠ ∅ := by
   apply not_eq_iff.mpr
   obtain ⟨x, hx⟩ := nonempty_def hI
-  refine ⟨x, ⟨fun _ => not_mem_empty _, fun _ => ?_⟩⟩
-  exact mem_union _ _ _ |>.mpr (Or.inl hx)
+  use x
+  simp [hx]
 
 theorem SetTheory.Set.union_of_nonempty' {I J:Set} (hJ: J ≠ ∅) : I ∪ J ≠ ∅ :=
   union_comm _ _ ▸ union_of_nonempty hJ
