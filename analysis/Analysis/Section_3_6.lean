@@ -52,19 +52,39 @@ theorem SetTheory.Set.Example_3_6_2 : EqualCard {0,1,2} {3,4,5} := by
   · use ⟨2, by simp⟩; aesop
 
 /-- Example 3.6.3 -/
-theorem SetTheory.Set.Example_3_6_3 : EqualCard nat (nat.specify (fun x ↦ Even (x:ℕ))) := by sorry
+theorem SetTheory.Set.Example_3_6_3 : EqualCard nat (nat.specify (fun x ↦ Even (x:ℕ))) := by
+  refine ⟨fun x => ⟨((2 * (x:ℕ)): ℕ), ?_⟩, ?_, ?_⟩
+  · rw [specification_axiom'']
+    use nat_equiv (2 * nat_equiv.symm x) |>.prop
+    simp
+  · intro x y h
+    simp at h
+    exact h
+  · intro ⟨x, hx⟩
+    simp [specification_axiom''] at hx
+    obtain ⟨h, ⟨y, hy⟩⟩ := hx
+    use y
+    simp at ⊢
+    rw [← Nat.two_mul] at hy
+    rw [← hy, Object.ofnat_eq'']
+
 
 @[refl]
-theorem SetTheory.Set.EqualCard.refl (X:Set) : EqualCard X X := by
-  sorry
+theorem SetTheory.Set.EqualCard.refl (X:Set) : EqualCard X X :=
+  ⟨id, Function.bijective_id⟩
 
 @[symm]
 theorem SetTheory.Set.EqualCard.symm {X Y:Set} (h: EqualCard X Y) : EqualCard Y X := by
-  sorry
+  obtain ⟨f, hf⟩ := h
+  obtain ⟨g, hg, hg'⟩ := Function.bijective_iff_has_inverse.mp hf
+  exact ⟨g, Function.bijective_iff_has_inverse.mpr ⟨f, hg', hg⟩⟩
 
 @[trans]
 theorem SetTheory.Set.EqualCard.trans {X Y Z:Set} (h1: EqualCard X Y) (h2: EqualCard Y Z) : EqualCard X Z := by
-  sorry
+  obtain ⟨f1, hf1⟩ := h1
+  obtain ⟨f2, hf2⟩ := h2
+  exact ⟨f2 ∘ f1, Function.Bijective.comp hf2 hf1⟩
+  
 
 /-- Proposition 3.6.4 / Exercise 3.6.1 -/
 instance SetTheory.Set.EqualCard.inst_setoid : Setoid SetTheory.Set := ⟨ EqualCard, {refl, symm, trans} ⟩
@@ -78,7 +98,37 @@ theorem SetTheory.Set.has_card_iff (X:Set) (n:ℕ) :
 
 /-- Remark 3.6.6 -/
 theorem SetTheory.Set.Remark_3_6_6 (n:ℕ) :
-    (nat.specify (fun x ↦ 1 ≤ (x:ℕ) ∧ (x:ℕ) ≤ n)).has_card n := by sorry
+  (nat.specify (fun x ↦ 1 ≤ (x:ℕ) ∧ (x:ℕ) ≤ n)).has_card n := by
+    apply has_card_iff _ _ |>.mpr
+    refine ⟨fun x => ⟨((⟨x.val, specification_axiom x.prop⟩: Nat): ℕ).pred, ?_⟩, ?_, ?_⟩
+    · rw [mem_Fin]
+      refine ⟨(nat_equiv.symm ⟨x, specification_axiom x.prop⟩).pred, ?_, rfl⟩
+      obtain ⟨_, hx', hx⟩  := specification_axiom'' _ _ |>.mp x.prop
+      set x := ((⟨x.val, specification_axiom x.prop⟩: Nat): ℕ)
+      have : x.pred < x := Nat.pred_lt (Nat.ne_zero_of_lt hx')
+      exact Nat.lt_of_lt_of_le this hx
+    · intro x y h
+      simp only [Subtype.mk.injEq, Object.natCast_inj] at h
+      obtain ⟨_, hx, _⟩  := specification_axiom'' _ _ |>.mp x.prop
+      obtain ⟨_, hy, _⟩  := specification_axiom'' _ _ |>.mp y.prop
+      replace h := _root_.Nat.pred_inj hx hy h
+      simp only [EmbeddingLike.apply_eq_iff_eq, Subtype.mk.injEq, Subtype.coe_inj] at h
+      exact h
+    · intro x
+      refine ⟨⟨(x: ℕ).succ, ?_⟩, by simp⟩
+      have := specification_axiom x.prop
+      have ⟨x, hx⟩ : ∃n: ℕ, ↑x = n := by use ↑x
+      simp_rw [hx]
+      refine specification_axiom'' _ _ |>.mpr ⟨?_, ?_, ?_⟩ 
+      · have ⟨x, hx'⟩ : ∃n: Nat, x.succ = ↑n :=
+          ⟨x.succ, Equiv.apply_eq_iff_eq_symm_apply _ |>.mp rfl⟩
+        simp_rw [hx', Object.ofnat_eq'']
+        exact x.prop
+      · exact Object.ofnat_eq''' ▸ NeZero.one_le
+      · subst x
+        rw [Object.ofnat_eq''']
+        have ⟨x', hx, h⟩ := mem_Fin _ _ |>.mp x.prop
+        simp_all [_root_.Nat.succ_le]
 
 /-- Example 3.6.7 -/
 theorem SetTheory.Set.Example_3_6_7a (a:Object) : ({a}:Set).has_card 1 := by
@@ -112,38 +162,150 @@ theorem SetTheory.Set.Example_3_6_7b {a b c d:Object} (hab: a ≠ b) (hac: a ≠
 /-- Lemma 3.6.9 -/
 theorem SetTheory.Set.pos_card_nonempty {n:ℕ} (h: n ≥ 1) {X:Set} (hX: X.has_card n) : X ≠ ∅ := by
   -- This proof is written to follow the structure of the original text.
-  by_contra! this
+  by_contra! hX_empty
   have hnon : Fin n ≠ ∅ := by
     apply nonempty_of_inhabited (x := 0); rw [mem_Fin]; use 0, (by omega); rfl
   rw [has_card_iff] at hX
   choose f hf using hX
-  sorry
   -- obtain a contradiction from the fact that `f` is a bijection from the empty set to a
   -- non-empty set.
+  obtain ⟨⟨y, hy⟩, _⟩ := hf.surjective (nonempty_choose hnon)
+  exact (not_mem_empty _) (hX_empty ▸ hy)
 
 /-- Exercise 3.6.2a -/
-theorem SetTheory.Set.has_card_zero {X:Set} : X.has_card 0 ↔ X = ∅ := by sorry
+theorem SetTheory.Set.has_card_zero {X:Set} : X.has_card 0 ↔ X = ∅ := by
+  rw [has_card_iff]
+  have hFin_0 : Fin 0 = ∅ := by ext x; simp
+  refine ⟨?_, ?_⟩ 
+  · intro ⟨f, _⟩ 
+    by_contra! hX
+    have ⟨_, h⟩ := f (nonempty_choose hX)
+    exact (not_mem_empty _) (hFin_0 ▸ h)
+  · intro h
+    refine ⟨fun ⟨_,hx⟩ => (not_mem_empty _) (h ▸ hx) |>.elim, ?_, ?_⟩
+    · intro ⟨_, hx⟩ _ _
+      exact (not_mem_empty _) (h ▸ hx) |>.elim
+    · intro ⟨_, hx⟩
+      exact (not_mem_empty _) (hFin_0 ▸ hx) |>.elim
 
+example : (n: ℕ) - p - q = n - q - p := by exact Nat.sub_right_comm n p q
+/- example : (n: ℕ) ≤ m → 0 ≤ m - n := by  -/
+
+set_option profiler true in
 /-- Lemma 3.6.9 -/
-theorem SetTheory.Set.card_erase {n:ℕ} (h: n ≥ 1) {X:Set} (hX: X.has_card n) (x:X) :
+theorem SetTheory.Set.card_erase {n:ℕ} (hn: n ≥ 1) {X:Set} (hX: X.has_card n) (x:X) :
     (X \ {x.val}).has_card (n-1) := by
   -- This proof has been rewritten from the original text to try to make it friendlier to
   -- formalize in Lean.
-  rw [has_card_iff] at hX; choose f hf using hX
+  rw [has_card_iff] at hX
+  choose f hf using hX
   set X' : Set := X \ {x.val}
-  set ι : X' → X := fun ⟨y, hy⟩ ↦ ⟨ y, by aesop ⟩
-  observe hι : ∀ x:X', (ι x:Object) = x
+  have mem_X' {v} : v ∈ X' ↔ v ∈ X ∧ v ≠ x.val := by rw [mem_sdiff, mem_singleton]
+  set ι : X' → X := fun ⟨y, hy⟩ ↦ ⟨ y, by simp_all only [ge_iff_le, mem_sdiff, mem_singleton, ne_eq,
+    implies_true, X'] ⟩
+  have hι : ∀ x:X', ι x = ⟨x, mem_X'.mp x.prop |>.left⟩ := fun _ => rfl
+  have ι_inj {x y} : ι x = ι y ↔ x = y := by
+    refine ⟨fun h => ?_, congrArg _⟩ 
+    simp_rw [hι, Subtype.mk.injEq, coe_inj] at h
+    exact h
   choose m₀ hm₀ hm₀f using (mem_Fin _ _).mp (f x).property
+  have hfι (x': X') : (f (ι x'):ℕ) ≠ m₀ := by
+      by_contra!
+      simp [←this, Subtype.val_inj, hf.1.eq_iff, ι] at hm₀f
+      have := x'.property
+      rename_i this_2
+      subst this_2
+      simp_all only [ge_iff_le, implies_true, mem_sdiff, mem_singleton, not_true_eq_false, and_false, X', ι]
   set g : X' → Fin (n-1) := fun x' ↦
     let := Fin.toNat_lt (f (ι x'))
-    let : (f (ι x'):ℕ) ≠ m₀ := by
-      by_contra!; simp [←this, Subtype.val_inj, hf.1.eq_iff, ι] at hm₀f
-      have := x'.property; aesop
+    let := hfι x'
     if h' : f (ι x') < m₀ then Fin_mk _ (f (ι x')) (by omega)
     else Fin_mk _ (f (ι x') - 1) (by omega)
   have hg_def (x':X') : if (f (ι x'):ℕ) < m₀ then (g x':ℕ) = f (ι x') else (g x':ℕ) = f (ι x') - 1 := by
     split_ifs with h' <;> simp [g,h']
-  have hg : Function.Bijective g := by sorry
+  have hg_def' (x':X') : if (g x':ℕ) < m₀ then (g x':ℕ) = f (ι x') else (g x':ℕ) = f (ι x') - 1 := by
+    split_ifs with h' <;> simp [g]
+    <;> split_ifs with h''
+    · exact Fin.toNat_mk _ _
+    · have hgx' := hg_def x'
+      rw [if_neg h''] at hgx'
+      rw [hgx'] at h'
+      replace h': (f (ι x'): ℕ) ≤ m₀ := Nat.le_of_pred_lt h'
+      replace h'' := Nat.le_of_not_lt h''
+      exact (hfι x') (Nat.le_antisymm h' h'') |>.elim
+    · have hgx' := hg_def x'
+      rw [if_pos h''] at hgx'
+      rw [hgx'] at h'
+      exact h' h'' |>.elim
+    · exact Fin.toNat_mk _ _
+  have hg : Function.Bijective g := by
+    constructor
+    · intro a b h
+      apply ι_inj.mp
+      apply hf.injective
+      have hfιa := hfι a
+      have hfιb := hfι b
+      have hga := hg_def a
+      have hgb := hg_def' b
+      split_ifs at hga with hga'
+      · rwa [if_pos (h ▸ hga ▸ hga'), ← h, hga, ← Fin.coe_inj] at hgb
+      · have hf0 : (f (ι a): ℕ) ≠ 0 := by
+          by_cases h : m₀ = 0
+          · exact h ▸ hfιa 
+          have : m₀ > 0 := Nat.zero_lt_of_ne_zero h
+          have : (f (ι a): ℕ) > 0 := Nat.lt_of_lt_of_le this (Nat.le_of_not_lt hga')
+          exact Nat.ne_zero_of_lt this
+        have hfam : (f (ι a): ℕ) > m₀ := 
+          Nat.lt_of_le_of_ne (Nat.le_of_not_lt hga') (hfιa).symm
+        rw [if_neg, ← h, hga] at hgb
+        have hfbm : (f (ι a): ℕ) - 1 ≥ m₀ := Nat.le_sub_one_of_lt hfam
+        rw [hgb] at hfbm
+        replace hfbm : (f (ι b): ℕ) ≥ m₀ := hfbm.trans (Nat.sub_le _ _)
+        replace hfbm : (f (ι b): ℕ) > m₀ := Nat.lt_of_le_of_ne hfbm (id (Ne.symm hfιb))
+        replace hgb := Nat.pred_inj (Nat.zero_lt_of_lt hfam) (Nat.zero_lt_of_lt hfbm) hgb
+        exact Fin.coe_inj.mpr hgb
+        rw [← h, hga, not_lt]
+        exact Nat.le_sub_one_of_lt hfam
+    intro m
+    by_cases h : m < m₀
+    · obtain ⟨a, ha⟩ := hf.surjective ⟨m, mem_Fin_of_mem_Fin m.prop (Nat.sub_le _ _)⟩
+      have : a ≠ x := by
+        by_contra! h'
+        replace h' := congrArg Subtype.val <| congrArg f h'
+        rw [ha, hm₀f] at h'
+        simp only [Fin.coe_eq_iff] at h'
+        exact Nat.ne_of_lt h h'
+      let a': X' := ⟨a, mem_X'.mpr ⟨a.prop, Subtype.coe_ne_coe.mpr this⟩⟩
+      have hιa: ι a' = a := rfl
+      have : ↑(f (ι a')) < m₀ := by rwa [hιa, ha, Fin.coe_eq_iff']
+      use a'
+      simp [g, dif_pos this, hιa, ha]
+    rw [not_lt] at h
+    let m': Fin n := ⟨(m:ℕ).succ, by
+      refine  mem_Fin _ _ |>.mpr ⟨(m:ℕ).succ, ?_, rfl⟩ 
+      have := mem_Fin _ _ |>.mp m.prop
+      simp only [Fin.coe_eq_iff, exists_eq_right'] at this
+      exact Nat.lt_of_le_pred hn this
+    ⟩
+    have hm' : (m': ℕ)  = (m: ℕ).succ := (Fin.coe_eq_iff m').mp rfl
+    obtain ⟨a, ha⟩ := hf.surjective m'
+    have : a ≠ x := by 
+      by_contra! h'
+      replace h' := congrArg Subtype.val <| congrArg f h'
+      rw [ha, hm₀f] at h'
+      simp only [Fin.coe_eq_iff] at h'
+      refine (?_: ¬ _) h'
+      have := _root_.Nat.lt_succ_of_le h
+      replace := _root_.Nat.ne_of_lt this |>.symm
+      exact hm' ▸ this
+    let a': X' := ⟨a, mem_X'.mpr ⟨a.prop, Subtype.coe_ne_coe.mpr this⟩⟩
+    have hιa: ι a' = a := rfl
+    have : ¬↑(f (ι a')) < m₀ := by 
+      rw [hιa, ha, hm']
+      apply not_lt.mpr
+      exact h.trans (Nat.le_succ _)
+    use a'
+    simp [g, dif_neg this, hιa, ha, hm']
   use g
 
 /-- Proposition 3.6.8 (Uniqueness of cardinality) -/

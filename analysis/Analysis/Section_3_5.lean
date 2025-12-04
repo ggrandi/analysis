@@ -381,6 +381,11 @@ theorem SetTheory.Set.mem_Fin (n:ℕ) (x:Object) : x ∈ Fin n ↔ ∃ m, m < n 
   use (by rw [h, ←Object.ofnat_eq]; exact (m:nat).property)
   grind [Object.ofnat_eq''']
 
+theorem SetTheory.Set.mem_Fin_of_mem_Fin {n m: ℕ} {x: Object} (hx: x ∈ Fin n) (hnm: n ≤ m) : x ∈ Fin m := by
+  rw [mem_Fin] at hx ⊢
+  obtain ⟨x, hx, rfl⟩ := hx
+  use x, Nat.lt_of_lt_of_le hx hnm
+
 theorem SetTheory.Set.Fin_mem_exists (h: n ≠ 0) : ∃m, m ∈ Fin n := by
   use n.pred
   rw [mem_Fin]
