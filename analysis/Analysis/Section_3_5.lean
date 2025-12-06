@@ -381,11 +381,6 @@ theorem SetTheory.Set.mem_Fin (n:ℕ) (x:Object) : x ∈ Fin n ↔ ∃ m, m < n 
   use (by rw [h, ←Object.ofnat_eq]; exact (m:nat).property)
   grind [Object.ofnat_eq''']
 
-theorem SetTheory.Set.mem_Fin_of_mem_Fin {n m: ℕ} {x: Object} (hx: x ∈ Fin n) (hnm: n ≤ m) : x ∈ Fin m := by
-  rw [mem_Fin] at hx ⊢
-  obtain ⟨x, hx, rfl⟩ := hx
-  use x, Nat.lt_of_lt_of_le hx hnm
-
 theorem SetTheory.Set.Fin_mem_exists (h: n ≠ 0) : ∃m, m ∈ Fin n := by
   use n.pred
   rw [mem_Fin]
@@ -454,6 +449,10 @@ theorem SetTheory.Set.Fin.toNat_mk {n:ℕ} (m:ℕ) (h: m < n) : (Fin_mk n m h : 
 abbrev SetTheory.Set.Fin_embed (n N:ℕ) (h: n ≤ N) (i: Fin n) : Fin N := ⟨ i.val, by
   have := i.property; rw [mem_Fin] at *; grind
 ⟩
+
+theorem SetTheory.Set.Fin.embed_mk (n N:ℕ) (h: n ≤ N) (i: Fin N) (hi: i < n) : 
+   Fin_embed n N h (Fin_mk n i hi) = i := by
+     simp only [Fin.coe_inj, Fin.coe_eq_iff', Fin.toNat_mk]
 
 /-- Connections with Mathlib's `Fin n` -/
 noncomputable abbrev SetTheory.Set.Fin.Fin_equiv_Fin (n:ℕ) : Fin n ≃ _root_.Fin n where
