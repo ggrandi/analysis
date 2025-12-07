@@ -374,6 +374,9 @@ theorem SetTheory.Set.union_assoc (A B C:Set) : (A ∪ B) ∪ C = A ∪ (B ∪ C
   ext x
   simp only [mem_union, or_assoc]
 
+theorem SetTheory.Set.union_right_comm (A B C:Set) : A ∪ B ∪ C = A ∪ C ∪ B := by
+  rw [union_assoc, union_assoc, union_comm B C]
+
 /-- Proposition 3.1.27(c) -/
 @[simp]
 theorem SetTheory.Set.union_self (A:Set) : A ∪ A = A := by

@@ -504,14 +504,11 @@ theorem SetTheory.Set.card_insert {X:Set} (hX: X.finite) {x:Object} (hx: x ∉ X
       simp [f', dif_pos x'.prop, hx']
   refine ⟨Exists.intro n.succ X_x_has_card, has_card_to_card X_x_has_card⟩ 
 
-/-- Proposition 3.6.14 (b) / Exercise 3.6.4 -/
-theorem SetTheory.Set.card_union {X Y:Set} (hX: X.finite) (hY: Y.finite) :
-  (X ∪ Y).finite ∧ (X ∪ Y).card ≤ X.card + Y.card := by
+theorem SetTheory.Set.induction_insert {p : Set → Prop} {X: Set} (hX: X.finite) (hempty: p empty)
+  (hind: ∀x X, X.finite → x ∉ X → p X → p (X ∪ {x})) : p X := by
     obtain ⟨n, hn⟩ := hX
-    obtain ⟨m, hm⟩ := hY
     induction' n with n ih generalizing X
-    · obtain rfl : X = ∅ := has_card_zero.mp hn
-      simp [Exists.intro m hm] 
+    · exact has_card_zero.mp hn ▸ hempty
     have X_nonempty : X ≠ ∅ := by
       apply has_card_zero.not.mp
       by_contra h
@@ -522,7 +519,6 @@ theorem SetTheory.Set.card_union {X Y:Set} (hX: X.finite) (hY: Y.finite) :
       rw [mem_sdiff, not_and, not_not]
       exact fun _ => mem_singleton _ _ |>.mpr rfl
     have X'_card : X'.has_card n := SetTheory.Set.card_erase (Nat.le_add_left _ _) hn x
-    replace ih := ih X'_card
     obtain hX : X = X' ∪ {x.val} := by
       ext x'
       unfold X'
@@ -535,103 +531,248 @@ theorem SetTheory.Set.card_union {X Y:Set} (hX: X.finite) (hY: Y.finite) :
       · rintro (h|h)
         · exact h.left
         exact h ▸ x.prop
-    rw [hX, show X' ∪ {x.val} ∪ Y = X' ∪ Y ∪ {x.val} by simp_rw [union_assoc, union_comm]]
-    have X'_x_card := card_insert (Exists.intro n X'_card) hx |>.right
-    by_cases hy : x.val ∈ Y
-    · have hXY : X' ∪ Y ∪ {↑x} = X' ∪ Y := by
-        rw [union_assoc, union_subset (show {x.val} ⊆ Y by
+    exact hX ▸ hind x.val X' ⟨n, X'_card⟩ hx (ih X'_card)
+
+/-- Proposition 3.6.14 (b) / Exercise 3.6.4 -/
+theorem SetTheory.Set.card_union {X Y:Set} (hX: X.finite) (hY: Y.finite) :
+  (X ∪ Y).finite ∧ (X ∪ Y).card ≤ X.card + Y.card := by
+    have ⟨m, hm⟩ := hY
+    apply induction_insert hX
+    · simp [hY]
+    intro x X hX hx ih
+    rw [card_insert hX hx |>.2]
+    by_cases hy : x ∈ Y
+    · have hXY : X ∪ {x} ∪ Y = X ∪ Y := by
+        rw [union_assoc, subset_union (show {x} ⊆ Y by
           intro x' hx'
           obtain rfl := mem_singleton _ _ |>.mp hx'
           exact hy
         )]
-      refine hXY.symm ▸ ⟨ih.left, ?_⟩ 
-      apply le_add_of_le_add_right ih.right
-      exact X'_x_card ▸ Nat.le_succ _
-    have hXY : x.val ∉ X' ∪ Y := by
+      refine ⟨hXY ▸ ih.1, hXY ▸ Nat.le_trans ih.2 ?_⟩ 
+      refine Nat.add_le_add_right ?_ _
+      exact Nat.le_add_right _ _
+    have hxy : x ∉ X ∪ Y := by
       rw [mem_union, not_or]
       exact ⟨hx, hy⟩ 
-    have := card_insert ih.left hXY
+    have := card_insert ih.1 hxy
+    rw [union_right_comm]
     refine ⟨this.1, ?_⟩ 
-    rw [this.2, X'_x_card, add_right_comm]
-    exact Nat.add_le_add ih.2 (Nat.le_refl _)
+    rw [this.2, add_right_comm]
+    exact Nat.add_le_add_right ih.2 _
 
 /-- Proposition 3.6.14 (b) / Exercise 3.6.4 -/
 theorem SetTheory.Set.card_union_disjoint {X Y:Set} (hX: X.finite) (hY: Y.finite)
-  (hdisj: Disjoint X Y) : (X ∪ Y).card = X.card + Y.card := by
-    obtain ⟨n, hn⟩ := hX
-    obtain ⟨m, hm⟩ := hY
-    induction' n with n ih generalizing X
-    · simp [has_card_zero.mp hn]
+  : (hdisj: Disjoint X Y) → (X ∪ Y).card = X.card + Y.card := by
+    have ⟨m, hm⟩ := hY
+    apply induction_insert hX
+    · simp
+    intro x X hX hx ih hdisj
     replace hdisj := by simp [Set.disjoint_iff, Set.ext_iff, mem_inter] at hdisj; exact hdisj
-    have X_nonempty : X ≠ ∅ := by
-      apply has_card_zero.not.mp
-      by_contra h
-      exact Nat.zero_lt_succ n |>.ne (card_uniq h hn)
-    let x := nonempty_choose X_nonempty
-    let X' := X \ {x.val}
-    have hx : x.val ∉ X' := by
-      rw [mem_sdiff, not_and, not_not]
-      exact fun _ => mem_singleton _ _ |>.mpr rfl
-    have X'_subset_X : X' ⊆ X := fun x hx => mem_sdiff _ _ _ |>.mp hx |>.left
-    have X'_card : X'.has_card n := SetTheory.Set.card_erase (Nat.le_add_left _ _) hn x
-    have X'_Y_disj : Disjoint X' Y := by
+    have X_subset : X ⊆ X ∪ {x} := subset_union_left _ _
+    have : Disjoint X Y := by
       simp [Set.disjoint_iff, Set.ext_iff, mem_inter]
-      exact fun x a ↦ hdisj x (X'_subset_X x a)
-    replace ih := ih X'_Y_disj X'_card
-    obtain hX : X = X' ∪ {x.val} := by
-      ext x'
-      unfold X'
-      simp [mem_union, mem_singleton, mem_sdiff]
-      constructor
-      · intro h
-        by_cases hx' : x' = x.val
-        · exact Or.inr hx'
-        exact Or.inl ⟨h, hx'⟩ 
-      · rintro (h|h)
-        · exact h.left
-        exact h ▸ x.prop
-    have := card_union (Exists.intro n X'_card) (Exists.intro m hm) |>.left
-    have hXY : x.val ∉ X' ∪ Y := by
+      intro x' hx
+      by_contra hy
+      have := not_imp_not.mpr (hdisj x') (fun h ↦ h hy) |> not_or.mp
+      exact this.1 hx
+    specialize ih this
+    have hxy : x ∉ X ∪ Y := by
       rw [mem_union, not_or]
-      exact ⟨hx, hdisj _ x.prop⟩ 
+      exact ⟨hx, hdisj x (Or.inr rfl)⟩ 
     rw [
-      hX,
-      show X' ∪ {x.val} ∪ Y = X' ∪ Y ∪ {x.val} by simp_rw [union_assoc, union_comm],
-      card_insert (Exists.intro n X'_card) hx |>.right,
-      card_insert this hXY |>.right,
+      union_right_comm, 
+      card_insert (card_union hX hY).left hxy |>.2, 
+      card_insert hX hx |>.2,
       ih,
-      Nat.add_right_comm,
+      add_right_comm
     ]
 
 /-- Proposition 3.6.14 (c) / Exercise 3.6.4 -/
 theorem SetTheory.Set.card_subset {X Y:Set} (hX: X.finite) (hY: Y ⊆ X) :
   Y.finite ∧ Y.card ≤ X.card := by
-    obtain ⟨n, hn⟩ := hX
-    induction' n with n ih generalizing X
+    have ⟨n, hn⟩ := hX
+    induction' n with n ih generalizing X Y
     · obtain rfl : X = ∅ := has_card_zero.mp hn
       obtain rfl : Y = ∅ := subset_antisymm _ _ hY (empty_subset _)
       exact ⟨finite_of_empty rfl, Nat.le_refl empty.card⟩ 
-    sorry
+    by_cases hXY : X \ Y = ∅
+    · have : X = Y := by
+        ext x
+        obtain h : X = X ∪ Y := union_subset hY |>.symm
+        rw [union_eq_partition, hXY, empty_union] at h
+        rw [Set.ext_iff.mp h x, mem_union, mem_inter, mem_sdiff, and_comm, ← and_or_left, and_iff_left_iff_imp]
+        exact fun _ => Classical.em _
+      exact this ▸ ⟨hX, Nat.le_refl _⟩ 
+    have X_nonempty := pos_card_nonempty (Nat.le_add_left _ _) hn
+    let x := nonempty_choose hXY
+    have hx := mem_sdiff _ _ _ |>.mp x.prop
+    let X' := X \ {x.val}
+    have X'_card : X'.has_card n := 
+      card_erase (Nat.le_add_left _ _) hn ⟨x.val, hx.left⟩
+    have Y_subset : Y ⊆ X' := by
+      intro y hy
+      rw [mem_sdiff, mem_singleton]
+      refine ⟨hY _ hy, ?_⟩ 
+      by_contra! rfl
+      exact hx.right hy
+    specialize ih ⟨n, X'_card⟩ Y_subset X'_card 
+    refine ⟨ih.left, ih.right.trans ?_⟩ 
+    rw [has_card_to_card X'_card, has_card_to_card hn]
+    exact Nat.le_add_right _ _
 
 /-- Proposition 3.6.14 (c) / Exercise 3.6.4 -/
-theorem SetTheory.Set.card_ssubset {X Y:Set} (hX: X.finite) (hY: Y ⊂ X) :
-    Y.card < X.card := by sorry
+theorem SetTheory.Set.card_ssubset {X Y:Set} (hX: X.finite) (hY_ssubset: Y ⊂ X) :
+  Y.card < X.card := by
+    have ⟨hY_subset, hXY⟩  : Y ⊆ X ∧ Y ≠ X := hY_ssubset
+    replace ⟨hY, card_le⟩ := card_subset hX hY_subset
+    refine Nat.lt_of_le_of_ne card_le ?_
+    let Z := X \ Y
+    have hZY_eq : Z ∪ Y = X := by 
+      rw [union_comm]
+      exact union_compl hY_subset
+    have hZ_subset : Z ⊆ X := fun _ h => mem_sdiff _ _ _ |>.mp h |>.left
+    have hZ : Z.finite := (card_subset hX hZ_subset).left
+    have hZY_disj : Disjoint Z Y := by simp [disjoint_iff, Z, Set.ext_iff]
+    have Z_card : Z.card ≠ 0 := by
+      by_contra! h
+      have : Z = ∅ := empty_iff_card_eq_zero.mpr ⟨hZ, h⟩ 
+      rw [this, empty_union] at hZY_eq
+      exact hXY hZY_eq
+    replace := hZY_eq ▸ card_union_disjoint hZ hY hZY_disj
+    contrapose! Z_card
+    rwa [Z_card, Nat.right_eq_add] at this
 
 /-- Proposition 3.6.14 (d) / Exercise 3.6.4 -/
-theorem SetTheory.Set.card_image {X Y:Set} (hX: X.finite) (f: X → Y) :
-    (image f X).finite ∧ (image f X).card ≤ X.card := by sorry
+theorem SetTheory.Set.card_image {X Y:Set} (hX: X.finite) : (f: X → Y) →
+  (image f X).finite ∧ (image f X).card ≤ X.card := by
+    apply induction_insert hX
+    · intro f; simp
+    intro x X hX hx ih f
+    let f' (x: X): Y := f ⟨x.val, mem_union _ _ _ |>.mpr (Or.inl x.prop)⟩ 
+    specialize ih f'
+    let fx := f ⟨x, mem_union _ _ _ |>.mpr (Or.inr (mem_singleton _ _ |>.mpr rfl))⟩
+    have hF : (image f' X) ∪ {fx.val} = image f (X ∪ {x}) := by
+        ext x'; simp [f', fx]
+        constructor
+        · rintro (⟨a, ha, hfa⟩|h)
+          exact ⟨a, Or.inl ha, hfa⟩ 
+          exact ⟨x, Or.inr rfl, h.symm⟩ 
+        · rintro ⟨a, ha|rfl, hfa⟩
+          exact Or.inl ⟨a, Exists.intro ha hfa⟩ 
+          exact Or.inr hfa.symm
+    by_cases hfx : fx.val ∈ (image f' X)
+    · replace hF : (image f' X) = image f (X ∪ {x}) := by
+        rwa [union_subset] at hF
+        exact fun a ha => (mem_singleton _ _ |>.mp ha) ▸ hfx
+      refine hF ▸ ⟨ih.left, ih.right.trans ?_⟩ 
+      rw [card_insert hX hx |>.right]
+      exact Nat.le_add_right _ _
+    replace := card_insert ih.left hfx
+    rw [← hF]
+    refine ⟨this.left, this.right ▸ ?_⟩ 
+    rw [card_insert hX hx |>.right]
+    exact Nat.add_le_add_right ih.right _
+
 
 /-- Proposition 3.6.14 (d) / Exercise 3.6.4 -/
-theorem SetTheory.Set.card_image_inj {X Y:Set} (hX: X.finite) {f: X → Y}
-  (hf: Function.Injective f) : (image f X).card = X.card := by sorry
+theorem SetTheory.Set.card_image_inj {X Y:Set} (hX: X.finite) : {f: X → Y} →
+  (hf: Function.Injective f) → (image f X).card = X.card := by
+    apply induction_insert hX
+    · intro f hf; simp
+    intro x X hX hx ih f hf
+    let f' (x: X): Y := f ⟨x.val, mem_union _ _ _ |>.mpr (Or.inl x.prop)⟩ 
+    have f'_injective : Function.Injective f' := by
+      intro a b h
+      replace h := hf h
+      simpa [coe_inj] using h
+    specialize ih f'_injective
+    let fx := f ⟨x, mem_union _ _ _ |>.mpr (Or.inr (mem_singleton _ _ |>.mpr rfl))⟩
+    have f'_image_card := card_image hX f' 
+    have hF : (image f' X) ∪ {fx.val} = image f (X ∪ {x}) := by
+      ext x'; simp [f', fx]
+      constructor
+      · rintro (⟨a, ha, hfa⟩|h)
+        exact ⟨a, Or.inl ha, hfa⟩ 
+        exact ⟨x, Or.inr rfl, h.symm⟩ 
+      · rintro ⟨a, ha|rfl, hfa⟩
+        exact Or.inl ⟨a, Exists.intro ha hfa⟩ 
+        exact Or.inr hfa.symm
+    have hfx : fx.val ∉ (image f' X) := by
+      by_contra hfx
+      replace ⟨x', hx', hfx⟩ := mem_image _ _ _ |>.mp hfx
+      simp [coe_inj, fx] at hfx
+      replace hfx := hf hfx |> Subtype.mk.inj
+      exact (hfx ▸ hx) hx'
+    rw [← hF, 
+      card_insert f'_image_card.left hfx |>.right,
+      card_insert hX hx |>.right,
+      ih
+    ]
+
+@[simp]
+theorem SetTheory.Set.empty_prod (X: Set) : empty ×ˢ X = empty := by
+  ext x
+  simp
+
+@[simp]
+theorem SetTheory.Set.prod_empty (X: Set) : X ×ˢ empty = empty := by
+  ext x
+  simp
+
+@[simp]
+theorem SetTheory.Set.disjoint_prod {X Y Z: Set} (hZ: Z ≠ ∅) : Disjoint X Y ↔ Disjoint (X ×ˢ Z) (Y ×ˢ Z) := by
+  simp_rw [disjoint_iff, eq_empty_iff_forall_notMem, mem_inter, mem_cartesian, ← not_exists, not_iff_not]
+  constructor
+  · intro ⟨x, hX, hY⟩
+    have z := nonempty_choose hZ
+    exact ⟨OrderedPair.mk x z.val, ⟨⟨x, hX⟩, z, rfl⟩, ⟨⟨x, hY⟩, z, rfl⟩⟩
+  · rintro ⟨x, ⟨a, z1, ha⟩, ⟨b, z2, hb⟩⟩ 
+    rw [hb, OrderedPair.toObject.injective.eq_iff, OrderedPair.eq] at ha
+    exact ⟨a.val, a.prop, ha.left ▸ b.prop⟩ 
 
 /-- Proposition 3.6.14 (e) / Exercise 3.6.4 -/
 theorem SetTheory.Set.card_prod {X Y:Set} (hX: X.finite) (hY: Y.finite) :
-    (X ×ˢ Y).finite ∧ (X ×ˢ Y).card = X.card * Y.card := by sorry
+  (X ×ˢ Y).finite ∧ (X ×ˢ Y).card = X.card * Y.card := by
+    by_cases hY_nonempty : Y = ∅
+    · subst Y; simp
+    apply induction_insert hX
+    · simp
+    intro x X hX hx ih
+    rw [union_prod]
+    have card_singleton_prod : ∀x {X: Set}, X.finite → (({x}: Set) ×ˢ X).has_card X.card := by
+      intro x X hX
+      obtain ⟨f, hf⟩ := has_card_card hX |> (has_card_iff _ _).mp
+      refine has_card_iff _ _ |>.mpr ⟨(f <| snd ·), ?_, ?_⟩
+      · intro ⟨a, ha⟩ ⟨b, hb⟩ h
+        obtain ⟨a1, a2, rfl⟩ := mem_cartesian _ _ _ |>.mp ha
+        obtain ⟨b1, b2, rfl⟩ := mem_cartesian _ _ _ |>.mp hb
+        replace h := hf.injective h
+        simp only [snd_of_mk_cartesian] at h
+        have : a1 = b1 := by
+          have ha := a1.prop |> (mem_singleton _ _ |>.mp)
+          have hb := b1.prop |> (mem_singleton _ _ |>.mp)
+          simpa only [← hb, coe_inj] using ha
+        simp [h, this]
+      · intro m
+        obtain ⟨y, hy⟩ := hf.surjective m
+        use (mk_cartesian ⟨x, mem_singleton _ _ |>.mpr rfl⟩ y)
+        simp [snd_of_mk_cartesian, hy]
+    have x_xs_Y_card := card_singleton_prod x hY
+    refine ⟨card_union ih.left ⟨_, x_xs_Y_card⟩ |>.left, ?_⟩ 
+    have := disjoint_iff X {x} |>.mpr (eq_empty_iff_forall_notMem.mpr (by 
+      intro x'
+      simp
+      exact fun h h' => hx (h' ▸ h)
+    ))
+    replace := disjoint_prod hY_nonempty |>.mp this
+    replace := card_union_disjoint ih.left ⟨_, x_xs_Y_card⟩  this
+    rw [this, has_card_to_card x_xs_Y_card, 
+      ih.right, card_insert hX hx |>.right, 
+      Nat.succ_mul]
 
 noncomputable def SetTheory.Set.pow_fun_equiv {A B : Set} : ↑(A ^ B) ≃ (B → A) where
-  toFun := sorry
-  invFun := sorry
+  toFun x := sorry
+  invFun x := sorry
   left_inv := sorry
   right_inv := sorry
 
