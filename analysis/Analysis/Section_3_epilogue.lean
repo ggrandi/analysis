@@ -7,8 +7,9 @@ import Analysis.Section_3_1
 /-!
 # Analysis I, Chapter 3 epilogue: Connections with ZFSet
 
-In this epilogue we show that the `ZFSet` type in Mathlib (derived as a quotient from the
-`PSet` type) can be used to create models of the `SetTheory' class studied in this chapter, so long as we work in a universe of level at
+In this epilogue we show that the `ZFSet` type in Mathlib (derived as a
+quotient from the `PSet` type) can be used to create models of the `SetTheory'
+class studied in this chapter, so long as we work in a universe of level at
 least 1.  The constructions here are due to Edward van de Meent; see
 https://leanprover.zulipchat.com/#narrow/channel/113489-new-members/topic/Can.20this.20proof.20related.20to.20Set.20replacement.20be.20shorter.3F/near/527305173
 -/
@@ -24,7 +25,9 @@ lemma PSet.ofNat_mem_ofNat_of_lt (m n : ℕ) : n < m → ofNat n ∈ ofNat m := 
 
 lemma PSet.mem_ofNat_iff (n m : ℕ) : ofNat n ∈ ofNat m ↔ n < m := by
   refine ⟨ ?_, ofNat_mem_ofNat_of_lt m n ⟩
-  contrapose!; rw [le_iff_lt_or_eq]; rintro (h|rfl)
+  contrapose!
+  rw [le_iff_lt_or_eq]
+  rintro (h|rfl)
   · exact mem_asymm (ofNat_mem_ofNat_of_lt _ _ h)
   apply mem_irrefl
 
