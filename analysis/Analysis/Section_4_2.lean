@@ -536,22 +536,19 @@ theorem Rat.neg_le_neg_iff {x y: Rat} : -x ≤ -y ↔ y ≤ x := by
 theorem Rat.le_iff' {x y:Rat} : x ≤ y ↔ ∃(r: Rat), (0 ≤ r ∧ y - x = r) := by
   rw [le_iff, lt_iff]
   constructor
-  · rintro (h|rfl)
-    · refine ⟨y - x, ?_, by ring⟩
-      replace h := isNeg_iff.mp h
-      replace h := neg_lt_neg_iff.mp h
-      simp at h
-      exact Or.inl h
-    exact ⟨0, Or.inr rfl, by rw [sub_self]⟩
+  · refine (Or.elim · 
+      (fun h => ⟨y - x, ?_, by ring⟩)
+      (fun h => ⟨0, Or.inr rfl, by rw [h, sub_self]⟩))
+    replace h := isNeg_iff.mp h
+    replace h := neg_lt_neg_iff.mp h
+    simp at h
+    exact Or.inl h
   rintro ⟨r, hr, hxy⟩
   by_cases hr' : r = 0
-  · simp [hr'] at hxy
-    replace hxy := congr($hxy + x)
-    simp at hxy
+  · simp [hr', sub_eq_zero] at hxy
     exact Or.inr hxy.symm
-  refine Or.inl ⟨r, ?_, ?_⟩
+  refine Or.inl ⟨r, ?_, by simp [← hxy]⟩
   exact isPos_iff.mpr (le_iff _ _ |>.mp hr |>.elim id (hr' ·.symm |>.elim))
-  simp [← hxy]
 
 theorem Rat.nonneg_iff {x1 x2: ℤ} (hx2: x2 ≠ 0) : 0 ≤ x1 // x2 ↔ x1 ≠ 0 ∧ (0 < x1 ↔ 0 < x2) ∨ x1 = 0 := by
   rw [le_iff, ← isPos_iff, isPos_iff']
@@ -563,8 +560,8 @@ theorem Rat.add_nonneg {x y:Rat} (hx: 0 ≤ x) (hy: 0 ≤ y): 0 ≤ x + y := by
   rcases hx with hx|hx
   <;> rcases hy with hy|hy
   · exact Or.inl (add_Pos hx hy)
-  · exact Or.inl <| hy ▸ by simpa
-  · exact Or.inl <| hx ▸ by simpa
+  · exact Or.inl <| by simpa [← hy]
+  · exact Or.inl <| by simpa [← hx]
   · exact Or.inr (by rw [← hx, ← hy, add_zero])
 
 theorem Rat.eq_zero_if_nonneg_add_nonneg_eq_zero {n m: Rat} 
@@ -661,38 +658,216 @@ instance Rat.instLinearOrder : LinearOrder Rat where
     obtain rfl: m = 0 := Rat.eq_zero_if_nonneg_add_nonneg_eq_zero hm hn hbc
     replace hab := congr($hab + a)
     simpa [eq_comm] using hab
-  le_total := fun a b => by rcases trichotomous' a b with h|h|h <;> simp [le_iff, h]
+  le_total := fun a b => by rcases trichotomous' a b with h|h|h <;> tauto
   toDecidableLE := decidableRel
 
 /-- (Not from textbook) Rat has the structure of a strict ordered ring. -/
 instance Rat.instIsStrictOrderedRing : IsStrictOrderedRing Rat where
-  add_le_add_left := by sorry
-  add_le_add_right := by sorry
-  mul_lt_mul_of_pos_left := by sorry
-  mul_lt_mul_of_pos_right := by sorry
-  le_of_add_le_add_left := by sorry
-  zero_le_one := by sorry
+  add_le_add_left := fun a b hab c => by
+    obtain ⟨r, hr, hab⟩ := le_iff'.mp hab
+    exact le_iff'.mpr ⟨r, hr, by simp [hab]⟩
+  add_le_add_right := fun a b hab c => by
+    obtain ⟨r, hr, hab⟩ := le_iff'.mp hab
+    exact le_iff'.mpr ⟨r, hr, by simp [hab]⟩
+  mul_lt_mul_of_pos_left := by
+    intro a ha b c hbc
+    rw [← isPos_iff] at ha
+    simp [lt_iff, isNeg_iff_neg_isPos] at hbc
+    simp [ha, hbc, lt_iff, ← mul_sub, isNeg_iff_neg_isPos, neg_mul_eq_mul_neg, mul_Pos]
+  mul_lt_mul_of_pos_right := by
+    intro a ha b c hbc
+    rw [← isPos_iff] at ha
+    simp [lt_iff, isNeg_iff_neg_isPos] at hbc
+    simp [ha, hbc, lt_iff, ← sub_mul, isNeg_iff_neg_isPos, neg_mul_eq_neg_mul, mul_Pos]
+  le_of_add_le_add_left := fun a b c h => by
+    obtain ⟨r, hr, h⟩ := le_iff'.mp h
+    exact le_iff'.mpr ⟨r, hr, by simpa using h⟩
+  zero_le_one := by simp [ofNat_eq 1, nonneg_iff]
+
+theorem Rat.lt_iff_of_pos_denominator {x1 y1 x2 y2: ℤ} (hx2: x2 ≠ 0) (hy2: y2 ≠ 0) (h: 0 < x2 * y2) : 
+  x1 // x2 < y1 // y2 ↔ x1 * y2 < y1 * x2 := by
+    /- have ⟨hx2, hy2⟩ : x2 ≠ 0 ∧ y2 ≠ 0 := by -/
+    /-   by_cases h': 0 < x2 -/
+    /-   · refine ⟨ne_of_lt h' |>.symm, ne_of_lt ?_ |>.symm⟩ -/
+    /-     exact Int.pos_of_mul_pos_right h h' -/
+    /-   replace h': x2 < 0 := lt_of_le_of_ne (Int.not_lt.mp h') (fun h' => by simp [h'] at h) -/
+    /-   have h'': y2 < 0 := Int.neg_of_mul_pos_right h h' -/
+    /-   exact ⟨ne_of_lt h', ne_of_lt h''⟩ -/
+    simp [hx2, hy2, h, lt_iff, sub_eq, neg_eq, add_eq, isNeg_iff', Int.add_neg_eq_sub, sub_ne_zero, mul_comm]
+    rw [and_comm, lt_iff_le_and_ne]
+
+theorem Rat.lt_iff_of_neg_denominator {x1 y1 x2 y2: ℤ} (hx2: x2 ≠ 0) (hy2: y2 ≠ 0) (h: x2 * y2 < 0) : 
+  x1 // x2 < y1 // y2 ↔ y1 * x2 < x1 * y2  := by
+    /- have ⟨hx2, hy2⟩ : x2 ≠ 0 ∧ y2 ≠ 0 := by -/
+    /-   by_cases h': 0 < x2 -/
+    /-   · refine ⟨ne_of_lt h' |>.symm, ne_of_lt ?_⟩ -/
+    /-     exact Int.neg_of_mul_neg_right h h' -/
+    /-   replace h': x2 < 0 := lt_of_le_of_ne (Int.not_lt.mp h') (fun h' => by simp [h'] at h) -/
+    /-   have h'': y2 > 0 := Int.pos_of_mul_neg_right h h' -/
+    /-   exact ⟨ne_of_lt h', ne_of_lt h'' |>.symm⟩ -/
+    simp [hx2, hy2, lt_iff, sub_eq, neg_eq, add_eq]
+    rw [isNeg_iff_neg_isPos, 
+      neg_eq' _ (Int.mul_ne_zero hx2 hy2), 
+      isPos_iff' (Int.neg_ne_zero.mpr (Int.mul_ne_zero hx2 hy2))]
+    simp [h, Int.add_neg_eq_sub, sub_ne_zero, mul_comm]
+    exact Int.ne_of_gt
 
 /-- Exercise 4.2.6 -/
 theorem Rat.mul_lt_mul_right_of_neg (x y z:Rat) (hxy: x < y) (hz: z.isNeg) : x * z > y * z := by
-  sorry
+  exact mul_lt_mul_of_neg_right hxy (isNeg_iff.mp hz)
 
+theorem num_mkRat_of_div (x1 x2 : ℤ) (hx2: x2 ≠ 0) : (↑x1 / ↑x2: ℚ).num = (if x2 > 0 then x1 else -x1) / (x2.natAbs.gcd x1.natAbs) := by
+  split_ifs with h
+  · obtain ⟨x2, rfl⟩ := Int.eq_ofNat_of_zero_le (Int.le_of_lt h)
+    replace hx2 : x2 ≠ 0 := fun h ↦ hx2 (congrArg Nat.cast h)
+    simp [hx2, ← Rat.mkRat_eq_div, Rat.num_mkRat, Int.natAbs_natCast]
+  replace h : -x2 > 0 := by omega
+  obtain ⟨x2, hx2⟩ := Int.eq_ofNat_of_zero_le (Int.le_of_lt h)
+  obtain rfl := Int.eq_neg_comm.mp hx2.symm; clear hx2 h
+  replace hx2 : x2 ≠ 0 := by omega
+  simp [hx2, div_neg_eq_neg_div, ← Rat.mkRat_eq_div, Rat.num_mkRat, Int.natAbs_natCast]
+  refine Int.neg_ediv_of_dvd ?_ |>.symm
+  refine Int.ofNat_dvd_left.mpr ?_
+  exact Nat.gcd_dvd_right x2 x1.natAbs
 
+theorem den_mkRat_of_div (x1 x2 : ℤ) (hx2: x2 ≠ 0) : (↑x1 / ↑x2: ℚ).den = x2.natAbs / (x2.natAbs.gcd x1.natAbs) := by
+  by_cases h : x2 > 0
+  · obtain ⟨x2, rfl⟩ := Int.eq_ofNat_of_zero_le (Int.le_of_lt h)
+    replace hx2 : x2 ≠ 0 := fun h ↦ hx2 (congrArg Nat.cast h)
+    simp [hx2, ← Rat.mkRat_eq_div, Rat.den_mkRat, Int.natAbs_natCast]
+  replace h : -x2 > 0 := by omega
+  obtain ⟨x2, hx2⟩ := Int.eq_ofNat_of_zero_le (Int.le_of_lt h)
+  obtain rfl := Int.eq_neg_comm.mp hx2.symm; clear hx2 h
+  replace hx2 : x2 ≠ 0 := by omega
+  simp [hx2, div_neg_eq_neg_div, ← Rat.mkRat_eq_div, Rat.den_mkRat, Int.natAbs_natCast]
+
+theorem mkRat_of_ints (x1 x2 : ℤ) (hx2: x2 ≠ 0) : 
+  (↑x1 / ↑x2: ℚ) = mkRat (if x2 > 0 then x1 else -x1) x2.natAbs := by 
+    split_ifs with h
+    · obtain ⟨x2, rfl⟩ := Int.eq_ofNat_of_zero_le (Int.le_of_lt h)
+      replace hx2 : x2 ≠ 0 := fun h ↦ hx2 (congrArg Nat.cast h)
+      simp [Rat.mkRat_eq_div]
+    replace h : -x2 > 0 := by omega
+    obtain ⟨x2, hx2⟩ := Int.eq_ofNat_of_zero_le (Int.le_of_lt h)
+    obtain rfl := Int.eq_neg_comm.mp hx2.symm; clear hx2 h
+    replace hx2 : x2 ≠ 0 := by omega
+    simp [Rat.mkRat_eq_div, div_neg_eq_neg_div']
 /--
   Not in textbook: create an equivalence between Rat and ℚ. This requires some familiarity with
   the API for Mathlib's version of the rationals.
 -/
 abbrev Rat.equivRat : Rat ≃ ℚ where
   toFun := Quotient.lift (fun ⟨ a, b, h ⟩ ↦ a / b) (by
-    sorry)
+    intro ⟨a1, a2, ha2⟩ ⟨b1, b2, hb2⟩ h
+    simp [ha2, hb2, mkRat_of_ints, Rat.mkRat_eq_iff] at h ⊢
+    split_ifs with ha2 hb2 hb2
+    · simp [le_of_lt, ha2, hb2, abs_of_nonneg, h]
+    · simp [le_of_lt ha2, le_of_not_gt hb2, abs_of_nonneg, abs_of_nonpos, h]
+    · simp [le_of_lt hb2, le_of_not_gt ha2, abs_of_nonneg, abs_of_nonpos, h]
+    · simp [le_of_not_gt, hb2, ha2, abs_of_nonpos, h]
+  )
   invFun := fun n: ℚ ↦ (n:Rat)
-  left_inv n := sorry
-  right_inv n := sorry
+  left_inv n := by
+    obtain ⟨n1, n2, hn2, rfl⟩ := eq_diff n
+    simp [hn2, intCast_eq, div_eq, inv_eq, mul_eq]
+  right_inv n := by simp [ratCast_eq, Rat.num_div_den]
 
 /-- Not in textbook: equivalence preserves order -/
 abbrev Rat.equivRat_order : Rat ≃o ℚ where
   toEquiv := equivRat
-  map_rel_iff' := by sorry
+  map_rel_iff' := by
+    intro x y
+    obtain ⟨x1, x2, hx2, rfl⟩ := eq_diff x
+    obtain ⟨y1, y2, hy2, rfl⟩ := eq_diff y
+    simp [hx2, hy2, le_iff_lt_or_eq, eq, Rat.eq_iff_mul_eq_mul, _root_.Rat.lt_iff, 
+      num_mkRat_of_div, den_mkRat_of_div]
+    set xn := x2.natAbs.gcd x1.natAbs
+    have hxn : ↑xn ∣ x1 ∧ ↑xn ∣ x2 := by
+      refine ⟨?_, Rat.normalize.dvd_num rfl⟩
+      refine Int.ofNat_dvd_left.mpr (Nat.gcd_dvd_right x2.natAbs x1.natAbs)
+    have hxn' : (xn: ℤ) ≠ 0 := ne_zero_of_dvd_ne_zero hx2 hxn.right
+    have hxn'' : 0 < (xn: ℤ) := lt_of_le_of_ne (Int.natCast_nonneg _) hxn'.symm
+    set yn := y2.natAbs.gcd y1.natAbs
+    have hyn : ↑yn ∣ y1 ∧ ↑yn ∣ y2 := by
+      refine ⟨?_, Rat.normalize.dvd_num rfl⟩
+      refine Int.ofNat_dvd_left.mpr (Nat.gcd_dvd_right y2.natAbs y1.natAbs)
+    have hyn' : (yn: ℤ) ≠ 0 := ne_zero_of_dvd_ne_zero hy2 hyn.right
+    have hyn'' : 0 < (yn: ℤ) := lt_of_le_of_ne (Int.natCast_nonneg _) hyn'.symm
+    conv =>
+      lhs
+      congr
+      · rw [mul_comm,
+          ← Int.mul_lt_mul_left hyn'',
+          ← Int.mul_lt_mul_right hxn'',
+        ]
+        congr; all_goals
+          rw [← mul_assoc, mul_assoc, mul_comm]
+        · simp [hyn, Int.mul_ediv_cancel']
+          rw [Int.ediv_mul_cancel (by
+            split_ifs
+            · exact hxn.left
+            exact Int.dvd_neg.mpr hxn.left
+          )]
+        · simp [hxn, Int.ediv_mul_cancel]
+          rw [Int.mul_ediv_cancel' (by
+            split_ifs
+            · exact hyn.left
+            exact Int.dvd_neg.mpr hyn.left
+          )]
+      · rw [mul_comm,
+          ← Int.mul_eq_mul_left_iff hyn',
+          ← Int.mul_eq_mul_right_iff hxn',
+        ]
+        congr; all_goals
+          rw [← mul_assoc, mul_assoc, mul_comm]
+        · simp [hyn, Int.mul_ediv_cancel']
+          rw [Int.ediv_mul_cancel (by
+            split_ifs
+            · exact hxn.left
+            exact Int.dvd_neg.mpr hxn.left
+          )]
+        · simp [hxn, Int.ediv_mul_cancel]
+          rw [Int.mul_ediv_cancel' (by
+            split_ifs
+            · exact hyn.left
+            exact Int.dvd_neg.mpr hyn.left
+          )]
+    clear hyn'' hyn' hyn yn hxn'' hxn' hxn xn
+    rw [mul_comm y1 x2]
+    -- Change the ≤ iff to a < iff
+    conv => congr <;> rw [or_comm]
+    refine or_congr ?_ ?_
+    · constructor
+      · rintro h
+        split_ifs at h with ha2 hb2 hb2
+        · simpa [ha2, hb2, abs_of_pos] using h
+        · simpa [ha2, not_lt.mp hb2, abs_of_pos, abs_of_nonpos] using h
+        · simpa [not_lt.mp ha2, hb2, abs_of_pos, abs_of_nonpos] using h
+        · simpa [not_lt.mp ha2, not_lt.mp hb2, abs_of_nonpos] using h
+      · rintro h
+        split_ifs with ha2 hb2 hb2
+        · simpa [ha2, hb2, abs_of_pos] using h
+        · simpa [ha2, not_lt.mp hb2, abs_of_pos, abs_of_nonpos] using h
+        · simpa [not_lt.mp ha2, hb2, abs_of_pos, abs_of_nonpos] using h
+        · simpa [not_lt.mp ha2, not_lt.mp hb2, abs_of_nonpos] using h
+    split_ifs with hx hy hy
+    · simp [hx2, hy2, hx, hy, abs_of_pos, lt_iff_of_pos_denominator, mul_comm]
+    · have : x2 * y2 < 0 :=
+        Int.mul_neg_of_pos_of_neg hx (lt_of_le_of_ne (not_lt.mp hy) hy2)
+      simp [hx2, hy2, hx, not_lt.mp hy, abs_of_pos, abs_of_nonpos, 
+        this, lt_iff_of_neg_denominator, mul_comm]
+    · have : x2 * y2 < 0 :=
+        Int.mul_neg_of_neg_of_pos (lt_of_le_of_ne (not_lt.mp hx) hx2) hy
+      simp [hx2, hy2, not_lt.mp hx, hy, abs_of_pos, abs_of_nonpos, 
+        this, lt_iff_of_neg_denominator, mul_comm]
+    · have : 0 < x2 * y2 := by
+        suffices h: 0 < (-x2) * (-y2); simpa using h
+        apply lt_of_le_of_ne
+        · refine Int.mul_nonneg ?_ ?_
+          · exact Int.neg_nonneg_of_nonpos <| not_lt.mp hx
+          · exact Int.neg_nonneg_of_nonpos <| not_lt.mp hy
+        · simp [hx2, hy2]
+      simp [hx, hy, hx2, hy2, not_lt.mp, abs_of_nonpos, this, lt_iff_of_pos_denominator, mul_comm]
 
 /-- Not in textbook: equivalence preserves ring operations -/
 abbrev Rat.equivRat_ring : Rat ≃+* ℚ where
