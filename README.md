@@ -8,6 +8,7 @@ Heya, I have been going through the exercises and trying to fill in all the
 - Chapter 4:
   - Section 4.1
   - Section 4.2
+  - Section 4.3
 
 
 # Lean formalization of _Analysis I_
