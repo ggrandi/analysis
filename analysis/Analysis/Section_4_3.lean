@@ -529,4 +529,21 @@ theorem zpow_abs (x:ℚ) : (n:ℤ) → |x|^n = |x^n|
     simp_rw [Int.negSucc_eq, ← Int.natCast_succ, zpow_neg, abs_div, pow_abs, abs_one]
 
 /-- Exercise 4.3.5 -/
-theorem two_pow_geq (N:ℕ) : 2^N ≥ N := by sorry
+theorem two_pow_geq (N:ℕ) : 2^N ≥ N := by
+  induction N
+  case zero => exact Nat.zero_le _
+  case succ n ih =>
+    by_cases hn: n = 0
+    · rw [hn, zero_add, pow_one] 
+      norm_num
+    qify at ⊢ ih
+    rw [pow_succ, mul_two]
+    refine add_le_add ih ?_
+    clear hn ih
+    induction n
+    case neg.zero => rw [pow_zero]
+    case neg.succ n ih =>
+      rw [pow_succ]
+      refine ih.trans ?_
+      refine le_mul_of_one_le_right ?_ rfl
+      exact pow_nonneg n rfl
