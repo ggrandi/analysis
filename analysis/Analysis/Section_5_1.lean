@@ -108,6 +108,20 @@ abbrev Rat.Steady (ε: ℚ) (a: Chapter5.Sequence) : Prop :=
 lemma Rat.steady_def (ε: ℚ) (a: Chapter5.Sequence) :
   ε.Steady a ↔ ∀ n ≥ a.n₀, ∀ m ≥ a.n₀, ε.Close (a n) (a m) := by rfl
 
+lemma Rat.steady_iff {ε: ℚ} {a: ℕ → ℚ} :
+  ε.Steady (a: Chapter5.Sequence) ↔ ∀ n m, |a n - a m| ≤ ε := by
+    rw [steady_def]
+    constructor
+    · intro h j k
+      simpa using h j (by simp) k (by simp)
+    intro h j hj k hk
+    lift j to ℕ
+    · simpa using hj
+    lift k to ℕ
+    · simpa using hk
+    clear hj hk
+    simpa using h j k
+
 namespace Chapter5
 
 /--
@@ -171,11 +185,39 @@ example : (0.1:ℚ).Steady ((fun n:ℕ ↦ (10:ℚ) ^ (-(n:ℤ)-1) ):Sequence) :
 /--
 Example 5.1.5: The sequence 0.1, 0.01, 0.001, ... is not 0.01-steady. Left as an exercise.
 -/
-example : ¬(0.01:ℚ).Steady ((fun n:ℕ ↦ (10:ℚ) ^ (-(n:ℤ)-1) ):Sequence) := by sorry
+example : ¬(0.01:ℚ).Steady ((fun n:ℕ ↦ (10:ℚ) ^ (-(n:ℤ)-1) ):Sequence) := by
+  rw [Rat.steady_iff]
+  push_neg
+  use 0, 1
+  norm_num
+
+example {a b c: ℝ} (h: a / b < c) (hb: b > 0) : a < c * b := by exact (mul_inv_lt_iff₀ hb).mp h
 
 /-- Example 5.1.5: The sequence 1, 2, 4, 8, ... is not ε-steady for any ε. Left as an exercise.
 -/
-example (ε:ℚ) : ¬ ε.Steady ((fun n:ℕ ↦ (2 ^ (n+1):ℚ) ):Sequence) := by sorry
+example (ε:ℚ) : ¬ ε.Steady ((fun n:ℕ ↦ (2 ^ (n+1):ℚ) ):Sequence) := by
+  rw [Rat.steady_iff]
+  push_neg
+  obtain ⟨N, hN⟩ := exists_nat_gt (Real.log ε / Real.log 2)
+  replace hN: ε < 2 ^ N := by 
+    rify
+    refine Real.lt_pow_of_log_lt (by norm_num) ?_
+    refine mul_inv_lt_iff₀ ?_ |>.mp hN
+    refine Real.log_pos (by norm_num)
+  use 0, N + 1
+  calc ε
+  _ < 2 ^ N := hN
+  _ < 2 ^ (N + 2) - 2 := by
+    /- rw [Rat.pow_succ, Rat.pow_succ, mul_two, mul_two] -/
+    refine (Rat.lt_iff_sub_pos _ _).mpr ?_
+    ring_nf
+    refine lt_neg_add_iff_lt.mpr ?_
+    refine (Rat.div_lt_iff rfl).mp ?_
+    refine lt_of_lt_of_le (show 2 / 3 < 2 ^ 0 by norm_num) ?_
+    refine (pow_le_pow_iff_right₀ rfl).mpr ?_
+    exact Nat.zero_le N
+  _ ≤ _ := le_abs_self _
+  _ = _ := by rw [abs_sub_comm, zero_add, pow_one]
 
 /-- Example 5.1.5:The sequence 2, 2, 2, ... is ε-steady for any ε > 0.
 -/
@@ -213,6 +255,21 @@ abbrev Rat.EventuallySteady (ε: ℚ) (a: Chapter5.Sequence) : Prop := ∃ N ≥
 
 lemma Rat.eventuallySteady_def (ε: ℚ) (a: Chapter5.Sequence) :
   ε.EventuallySteady a ↔ ∃ N ≥ a.n₀, ε.Steady (a.from N) := by rfl
+
+theorem Rat.eventuallySteady_iff {ε: ℚ} {a: ℕ → ℚ} :
+  ε.EventuallySteady (a: Chapter5.Sequence) ↔ ∃ (N: ℕ), ∀ n ≥ N, ∀ m ≥ N, |a n - a m| ≤ ε := by
+    rw [eventuallySteady_def]
+    constructor
+    · intro ⟨N, N_pos, h⟩
+      lift N to ℕ; simpa using N_pos
+      refine ⟨N, fun j hj k hk => ?_⟩
+      simpa [hj, hk] using h j (by simpa using hj) k (by simpa using hk)
+    · intro ⟨N, h⟩
+      refine ⟨N, by simp, fun j hj k hk => ?_⟩
+      lift j to ℕ using (le_trans (Int.natCast_nonneg N) (by simpa using hj))
+      lift k to ℕ using (le_trans (Int.natCast_nonneg N) (by simpa using hk))
+      simp at hj hk
+      simpa [hj, hk] using h j hj k hk
 
 namespace Chapter5
 
@@ -409,10 +466,8 @@ theorem Sequence.ex_5_1_10_b : (0.1:ℚ).Steady (sqrt_two.from 1) := by
       exact one_div_pow_le_one_div_pow_of_le (by norm_num) (by omega)
     _ ≤ 0.1 := by norm_num
 
-
 theorem Sequence.ex_5_1_10_c : (0.1:ℚ).EventuallySteady sqrt_two := 
   ⟨1, by simp [sqrt_two], ex_5_1_10_b⟩
-
 
 /-- Proposition 5.1.11. The harmonic sequence, defined as a₁ = 1, a₂ = 1/2, ... is a Cauchy sequence. -/
 theorem Sequence.IsCauchy.harmonic : (mk' 1 (fun n ↦ (1:ℚ)/n)).IsCauchy := by
@@ -422,7 +477,7 @@ theorem Sequence.IsCauchy.harmonic : (mk' 1 (fun n ↦ (1:ℚ)/n)).IsCauchy := b
   obtain ⟨ N, hN : N > 1/ε ⟩ := exists_nat_gt (1 / ε)
   have hN' : N > 0 := by
     observe : (1/ε) > 0
-    observe : (N:ℚ) > 0
+    replace : (N:ℚ) > 0 := this.trans hN
     norm_cast at this
   refine ⟨ N, by norm_cast, ?_ ⟩
   intro j hj k hk
@@ -461,16 +516,42 @@ abbrev Sequence.BoundedBy (a:Sequence) (M:ℚ) : Prop := ∀ n, |a n| ≤ M
 /-- Definition 5.1.12 (bounded sequences) -/
 lemma Sequence.boundedBy_def (a:Sequence) (M:ℚ) : a.BoundedBy M ↔ ∀ n, |a n| ≤ M := by rfl
 
+lemma Sequence.boundedBy_iff {a: ℕ → ℚ} {M:ℚ} : (a: Sequence).BoundedBy M ↔ ∀ n, |a n| ≤ M := by
+  rw [boundedBy_def]
+  constructor
+  · intro h n
+    simpa using h n
+  · intro h n
+    have hM : 0 ≤ M := le_trans (abs_nonneg _) (h 0)
+    by_cases hn: n < 0
+    · simp [not_le.mpr hn, hM]
+    simpa [not_lt.mp hn] using h n.toNat
+
 abbrev Sequence.IsBounded (a:Sequence) : Prop := ∃ M ≥ 0, a.BoundedBy M
 
 /-- Definition 5.1.12 (bounded sequences) -/
 lemma Sequence.isBounded_def (a:Sequence) : a.IsBounded ↔ ∃ M ≥ 0, a.BoundedBy M := by rfl
 
+-- helper for when dealing with Nat Functions
+lemma Sequence.isBounded_iff {a: ℕ → ℚ} : (a: Sequence).IsBounded ↔ ∃ M ≥ 0, ∀n, |a n| ≤ M := by
+  rw [isBounded_def]
+  peel with M hM
+  exact boundedBy_iff
+
 /-- Example 5.1.13 -/
 example : BoundedBy ![1,-2,3,-4] 4 := by intro i; fin_cases i <;> norm_num
 
 /-- Example 5.1.13 -/
-example : ¬((fun n:ℕ ↦ (-1)^n * (n+1:ℚ)):Sequence).IsBounded := by sorry
+example : ¬((fun n:ℕ ↦ (-1)^n * (n+1:ℚ)):Sequence).IsBounded := by
+  by_contra h
+  choose M hM_pos hM using h
+  obtain ⟨ N, hN ⟩ := exists_nat_gt M
+  replace hM := hM N
+  simp at hM
+  rw [abs_of_nonneg (by positivity)] at hM
+  refine (not_lt.mpr ?_) hN
+  refine le_trans ?_ hM
+  refine (le_add_iff_nonneg_right (N:ℚ)).mpr rfl
 
 /-- Example 5.1.13 -/
 example : ((fun n:ℕ ↦ (-1:ℚ)^n):Sequence).IsBounded := by
@@ -496,25 +577,84 @@ lemma IsBounded.finite {n:ℕ} (a: Fin n → ℚ) : ∃ M ≥ 0,  BoundedBy a M 
   . use 0; simp
   set a' : Fin n → ℚ := fun m ↦ a m.castSucc
   choose M hpos hM using hn a'
-  have h1 : BoundedBy a' (M + |a (Fin.ofNat _ n)|) := fun m ↦ (hM m).trans (by simp)
-  have h2 : |a (Fin.ofNat _ n)| ≤ M + |a (Fin.ofNat _ n)| := by simp [hpos]
-  refine ⟨ M + |a (Fin.ofNat _ n)|, by positivity, ?_ ⟩
+  refine ⟨ max M |a (Fin.last n)|, by positivity, ?_ ⟩
   intro m; obtain ⟨ j, rfl ⟩ | rfl := Fin.eq_castSucc_or_eq_last m
-  . grind
-  convert h2; simp
+  . exact (hM j).trans (le_max_left _ _)
+  · exact le_max_right _ _
+
+example {a b c: ℚ} : -a - b ≤ c ↔ -a ≤ c + b := by exact OrderedSub.tsub_le_iff_right (-a) b c
 
 /-- Lemma 5.1.15 (Cauchy sequences are bounded) / Exercise 5.1.1 -/
 lemma Sequence.isBounded_of_isCauchy {a:Sequence} (h: a.IsCauchy) : a.IsBounded := by
-  sorry
+  choose N hN_pos hN using h 1 rfl
+  obtain ⟨N', hN'⟩ := Int.eq_ofNat_of_zero_le (Int.sub_nonneg_of_le hN_pos)
+  let ⟨M, hM_pos, hM⟩ := IsBounded.finite fun (n: Fin N') => a (a.n₀ + n)
+  refine ⟨max M (|a.seq N| + 1), by positivity, ?_⟩
+  intro n
+  by_cases hn: n < a.n₀
+  · simp [a.vanish _ hn, hM_pos]
+  replace hn := not_lt.mp hn
+  by_cases hn': n < N
+  · refine le_trans ?_ (le_max_left _ _)
+    unfold Chapter5.BoundedBy at hM
+    obtain ⟨m, hm⟩ := Int.eq_ofNat_of_zero_le (Int.sub_nonneg_of_le hn)
+    replace hm := add_comm a.n₀ _ ▸ Int.sub_eq_iff_eq_add.mp hm
+    simpa [← hm] using hM ⟨m, by omega⟩
+  replace hn' := not_lt.mp hn'
+  refine le_trans ?_ (le_max_right _ _)
+  replace hN := hN N (by simp [hN_pos]) n (by simp [hn, hn'])
+  simp [hN_pos, hn', Rat.Close] at hN
+  rw [abs_le] at hN
+  show |a.seq n| ≤ |a.seq N| + 1
+  refine abs_le'.mpr ⟨?_, ?_⟩
+  · apply le_trans (sub_neg_eq_add (a.seq N) 1 ▸ le_sub_comm.mp hN.left)
+    apply add_le_add ?_ rfl
+    exact le_abs_self _
+  rw [add_comm, ← OrderedSub.tsub_le_iff_right, neg_sub_comm]
+  refine le_trans ?_ hN.right
+  refine sub_le_sub_right ?_ _
+  exact neg_abs_le _
 
 /-- Exercise 5.1.2 -/
 theorem Sequence.isBounded_add {a b:ℕ → ℚ} (ha: (a:Sequence).IsBounded) (hb: (b:Sequence).IsBounded):
-    (a + b:Sequence).IsBounded := by sorry
+  (a + b:Sequence).IsBounded := by
+    choose M M_pos hM using ha
+    choose N N_pos hN using hb
+    refine ⟨M + N, by positivity, fun n => ?_⟩
+    calc
+    _ = |(a: Sequence).seq n + (b: Sequence).seq n| := by 
+      by_cases hn: 0 ≤ n
+      · simp [hn]
+      simp [hn]
+    _ ≤ |(a: Sequence).seq n| + |(b: Sequence).seq n| := abs_add_le _ _
+    _ ≤ M + N := add_le_add (hM _) (hN _)
+
+theorem Sequence.isBounded_neg {a:ℕ → ℚ} (ha: (a:Sequence).IsBounded):
+  (↑(-a): Sequence).IsBounded := by
+    choose N N_pos hN using ha
+    refine ⟨N, by positivity, fun n => ?_⟩
+    calc
+    _ = |(a: Sequence).seq n| := by
+      by_cases hn: 0 ≤ n
+      · simp [hn]
+      simp [hn]
+    _ ≤ N := hN n
 
 theorem Sequence.isBounded_sub {a b:ℕ → ℚ} (ha: (a:Sequence).IsBounded) (hb: (b:Sequence).IsBounded):
-    (a - b:Sequence).IsBounded := by sorry
+  (a - b:Sequence).IsBounded := by
+    rw [sub_eq_add_neg]
+    exact isBounded_add ha (isBounded_neg hb)
 
 theorem Sequence.isBounded_mul {a b:ℕ → ℚ} (ha: (a:Sequence).IsBounded) (hb: (b:Sequence).IsBounded):
-    (a * b:Sequence).IsBounded := by sorry
+  (a * b:Sequence).IsBounded := by
+    choose M M_pos hM using ha
+    choose N N_pos hN using hb
+    refine ⟨M * N, by positivity, ?_⟩
+    intro n
+    calc
+    _ = |((a: Sequence).seq n) * ((b: Sequence).seq n)| := by 
+      by_cases hn: 0 ≤ n <;> simp [hn]
+    _ = |(a: Sequence).seq n| * |(b: Sequence).seq n| := abs_mul _ _
+    _ ≤ M * N := mul_le_mul (hM _) (hN _) (abs_nonneg _) M_pos
 
 end Chapter5
