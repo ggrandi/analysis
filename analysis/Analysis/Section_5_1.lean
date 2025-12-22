@@ -253,7 +253,27 @@ Example 5.1.7
 The sequence 10, 0, 0, ... is eventually ε-steady for every ε > 0. Left as an exercise.
 -/
 lemma Sequence.ex_5_1_7_d {ε:ℚ} (hε:ε>0) :
-    ε.EventuallySteady ((fun n:ℕ ↦ if n=0 then (10:ℚ) else (0:ℚ) ):Sequence) := by sorry
+  ε.EventuallySteady ((fun n:ℕ ↦ if n=0 then (10:ℚ) else (0:ℚ) ):Sequence) := by
+    refine ⟨1, by simp, ?_⟩
+    intro i hi j hj
+    simp at hi hj
+    have hi' : i ≠ 0 := (Int.ne_of_lt hi).symm
+    replace hi' : i.toNat ≠ 0 := by
+      refine Int.ofNat_ne_zero.mp ?_
+      rwa [Int.toNat_of_nonneg (le_of_lt hi)]
+    have hj' : j ≠ 0 := (Int.ne_of_lt hj).symm
+    replace hj' : j.toNat ≠ 0 := by
+      refine Int.ofNat_ne_zero.mp ?_
+      rwa [Int.toNat_of_nonneg (le_of_lt hj)]
+    rw [
+      from_eval _ hi, from_eval _ hj, 
+      eval_coe_at_int, eval_coe_at_int,
+      if_pos (zero_le_one.trans hi),
+      if_neg hi',
+      if_pos (zero_le_one.trans hj),
+      if_neg hj',
+    ]
+    exact Section_4_3.close_mono (Section_4_3.close_refl _) (le_of_lt hε)
 
 abbrev Sequence.IsCauchy (a:Sequence) : Prop := ∀ ε > (0:ℚ), ε.EventuallySteady a
 
@@ -295,17 +315,104 @@ lemma Sequence.IsCauchy.mk {n₀:ℤ} (a: {n // n ≥ n₀} → ℚ) :
 
 noncomputable def Sequence.sqrt_two : Sequence := (fun n:ℕ ↦ ((⌊ (Real.sqrt 2)*10^n ⌋ / 10^n):ℚ))
 
-/--
-  Example 5.1.10. (This requires extensive familiarity with Mathlib's API for the real numbers.)
--/
-theorem Sequence.ex_5_1_10_a : (1:ℚ).Steady sqrt_two := by sorry
+theorem sqrt_approx {n: ℕ}: |⌊√2 * 10 ^ n⌋ / 10 ^ n - √2| < 1 / 10 ^ n := calc
+  _ = |↑⌊√2 * 10 ^ n⌋ / 10 ^ n - √2 * 10 ^ n / 10 ^ n| := by 
+    rw [mul_div_cancel_right₀ _ (pow_ne_zero n (by norm_num))]
+  _ = |(↑⌊√2 * 10 ^ n⌋ - √2 * 10 ^ n) / 10 ^ n| := by field_simp
+  _ = |(↑⌊√2 * 10 ^ n⌋ - √2 * 10 ^ n)| / 10 ^ n := by 
+    rw [abs_div, abs_of_nonneg (a := 10 ^ n) (pow_nonneg (by norm_num) n)]
+  _ = |(√2 * 10 ^ n - ↑⌊√2 * 10 ^ n⌋)| / 10 ^ n := by rw [← abs_neg, neg_sub]
+  _ < 1 / 10 ^ n := by
+    refine div_lt_div_of_pos_right ?_ (pow_pos (by norm_num) n)
+    rw [abs_of_nonneg <| sub_nonneg.mpr (Int.floor_le _)]
+    simp [Int.fract_lt_one]
+
+theorem floor_sqrt_2 : Int.floor √2 = 1 := by
+  apply le_antisymm
+  · refine Int.floor_le_iff.mpr ?_
+    refine (Real.sqrt_lt' (by norm_num)).mpr (by norm_num)
+  · refine Int.le_floor.mpr ?_
+    refine (Real.le_sqrt' (by norm_num)).mpr (by norm_num)
 
 /--
   Example 5.1.10. (This requires extensive familiarity with Mathlib's API for the real numbers.)
 -/
-theorem Sequence.ex_5_1_10_b : (0.1:ℚ).Steady (sqrt_two.from 1) := by sorry
+theorem Sequence.ex_5_1_10_a : (1:ℚ).Steady sqrt_two := by
+  intro n hn m hm
+  rw [Section_4_3.close_iff, sqrt_two]
+  obtain ⟨n, rfl⟩ := Int.eq_ofNat_of_zero_le hn; clear hn
+  obtain ⟨m, rfl⟩ := Int.eq_ofNat_of_zero_le hm; clear hm
+  rify
+  simp
+  by_cases hmn' : m = n
+  · simp [hmn']
+  wlog hmn: m ≤ n
+  · specialize this m n (Ne.symm hmn') (le_of_not_ge hmn)
+    rwa [abs_sub_comm] at this
+  apply le_of_lt <| calc
+    _ = |↑⌊√2 * 10 ^ n⌋ / 10 ^ n - √2 - (↑⌊√2 * 10 ^ m⌋ / 10 ^ m - √2)| := by ring_nf
+    _ ≤ |↑⌊√2 * 10 ^ n⌋ / 10 ^ n - √2| + |↑⌊√2 * 10 ^ m⌋ / 10 ^ m - √2| := abs_sub _ _
+    _ < 1 / 10 ^ 1 + 0.415 := by 
+      refine add_lt_add ?_ ?_
+      · refine lt_of_lt_of_le sqrt_approx ?_
+        exact one_div_pow_le_one_div_pow_of_le (by norm_num) (by omega)
+      by_cases hm: m = 0
+      · simp only [hm, pow_zero, mul_one, div_one, abs_sub_comm]
+        rw [abs_of_nonneg <| sub_nonneg.mpr (Int.floor_le _), sub_lt_iff_lt_add', floor_sqrt_2]
+        exact (Real.sqrt_lt' (by norm_num)).mpr (by norm_num)
+      refine lt_trans ?_ (show 1 / 10 ^ 1 < _ by norm_num)
+      refine lt_of_lt_of_le sqrt_approx ?_
+      exact one_div_pow_le_one_div_pow_of_le (by norm_num) (by omega)
+    _ ≤ 1 := by norm_num
 
-theorem Sequence.ex_5_1_10_c : (0.1:ℚ).EventuallySteady sqrt_two := by sorry
+theorem floor_sqrt_2_times_ten : Int.floor (√2 * 10) = 14 := by
+  apply le_antisymm
+  · refine Int.floor_le_iff.mpr ?_
+    refine lt_div_iff₀ (show (0: ℝ) < 10 by norm_num) |>.mp ?_
+    exact (Real.sqrt_lt' (by norm_num)).mpr (by norm_num)
+  · refine Int.le_floor.mpr ?_
+    refine div_le_iff₀ (show (0: ℝ) < 10 by norm_num) |>.mp ?_
+    exact (Real.le_sqrt' (by norm_num)).mpr (by norm_num)
+
+/--
+  Example 5.1.10. (This requires extensive familiarity with Mathlib's API for the real numbers.)
+-/
+theorem Sequence.ex_5_1_10_b : (0.1:ℚ).Steady (sqrt_two.from 1) := by
+  intro n hn m hm
+  rw [Section_4_3.close_iff, sqrt_two]
+  obtain ⟨n, rfl⟩ := Int.eq_ofNat_of_zero_le (le_trans (by norm_num) hn)
+  obtain ⟨m, rfl⟩ := Int.eq_ofNat_of_zero_le (le_trans (by norm_num) hm)
+  simp [sqrt_two] at hm hn
+  rify
+  simp [hn, hm]
+  by_cases hmn' : m = n
+  · simp [hmn']
+    norm_num
+  wlog hmn: m ≤ n
+  · specialize this m n hn hm (Ne.symm hmn') (le_of_not_ge hmn)
+    rwa [abs_sub_comm] at this
+  apply le_of_lt <| calc (|↑⌊√2 * 10 ^ n⌋ / 10 ^ n - ↑⌊√2 * 10 ^ m⌋ / 10 ^ m|: ℝ)
+    _ = |↑⌊√2 * 10 ^ n⌋ / 10 ^ n - √2 - (↑⌊√2 * 10 ^ m⌋ / 10 ^ m - √2)| := by ring_nf
+    _ ≤ |↑⌊√2 * 10 ^ n⌋ / 10 ^ n - √2| + |↑⌊√2 * 10 ^ m⌋ / 10 ^ m - √2| := abs_sub _ _
+    _ < 1 / 10 ^ 2 + 0.015 := by
+      refine add_lt_add ?_ ?_
+      · refine lt_of_lt_of_le sqrt_approx ?_
+        exact one_div_pow_le_one_div_pow_of_le (by norm_num) (by omega)
+      by_cases hm': m = 1
+      · simp only [hm', abs_sub_comm, pow_one]
+        rw [floor_sqrt_2_times_ten, abs_of_nonneg ?_, sub_lt_iff_lt_add']
+        exact (Real.sqrt_lt' (by norm_num)).mpr (by norm_num)
+        refine sub_nonneg.mpr ?_
+        exact (Real.le_sqrt' (by norm_num)).mpr (by norm_num)
+      refine lt_trans ?_ (show 1 / 10 ^ 2 < _ by norm_num)
+      refine lt_of_lt_of_le sqrt_approx ?_
+      exact one_div_pow_le_one_div_pow_of_le (by norm_num) (by omega)
+    _ ≤ 0.1 := by norm_num
+
+
+theorem Sequence.ex_5_1_10_c : (0.1:ℚ).EventuallySteady sqrt_two := 
+  ⟨1, by simp [sqrt_two], ex_5_1_10_b⟩
+
 
 /-- Proposition 5.1.11. The harmonic sequence, defined as a₁ = 1, a₂ = 1/2, ... is a Cauchy sequence. -/
 theorem Sequence.IsCauchy.harmonic : (mk' 1 (fun n ↦ (1:ℚ)/n)).IsCauchy := by
