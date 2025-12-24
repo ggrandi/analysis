@@ -1,6 +1,7 @@
 import Mathlib.Tactic
 import Analysis.Section_5_3
 
+set_option profiler true
 
 /-!
 # Analysis I, Section 5.4: Ordering the reals
@@ -59,7 +60,7 @@ example : ¬ BoundedAwayNeg (fun n ↦ (-1)^n) := by
   intro ⟨ c, h1, h2 ⟩; specialize h2 0; grind
 
 /-- Examples 5.4.2 -/
-example : BoundedAwayZero (fun n ↦ (-1)^n) := ⟨ 1, by norm_num, by intros; simp ⟩
+example : BoundedAwayZero (fun n ↦ (-1: ℚ)^n) := ⟨ 1, by norm_num, by intros; simp ⟩
 
 theorem BoundedAwayZero.boundedAwayPos {a:ℕ → ℚ} (ha: BoundedAwayPos a) : BoundedAwayZero a := by
   peel 3 ha with c h1 n h2; rwa [abs_of_nonneg (by linarith)]
@@ -83,7 +84,90 @@ theorem Real.isNeg_def (x:Real) :
     IsNeg x ↔ ∃ a:ℕ → ℚ, BoundedAwayNeg a ∧ (a:Sequence).IsCauchy ∧ x = LIM a := by rfl
 
 /-- Proposition 5.4.4 (basic properties of positive reals) / Exercise 5.4.1 -/
-theorem Real.trichotomous (x:Real) : x = 0 ∨ x.IsPos ∨ x.IsNeg := by sorry
+theorem Real.trichotomous (x:Real) : x = 0 ∨ x.IsPos ∨ x.IsNeg := by
+  -- remove the case that x = 0 and assume that x ≠ 0
+  by_cases hzero: x = 0; exact Or.inl hzero; right
+  obtain ⟨a, ha, rfl⟩ := eq_lim x
+
+  -- use hzero to say that a cannot be ε-close to 0 for any ε
+  rw [ofNat_def, LIM_eq_LIM ha (Sequence.IsCauchy.const _), Sequence.equiv_iff] at hzero
+  push_neg at hzero
+  simp at hzero
+  obtain ⟨ε, εpos, hzero⟩ := hzero
+
+  -- use the fact that a is cauchy to the N when it starts being (ε/2)-steady
+  rw [isPos_def, isNeg_def]
+  obtain ⟨N, hN⟩ := Sequence.IsCauchy.coe _ |>.mp ha (ε / 2) (by positivity)
+  unfold Section_4_3.dist at hN
+
+  -- Create a new function that is easier to work with for the 
+  -- purpose of showing whether something is BoundedAwayPos/BoundedAwayNeg
+  let a' (x: ℚ) (n: ℕ) := if n < N then x else a n
+
+  -- can now reduce the problem to finding whether the equivalent function is
+  -- BoundedAwayPos/BoundedAwayNeg
+  --
+  -- we choose the value of x such that it can simplify a case later
+  suffices (∃x, BoundedAwayPos (a' x)) ∨ (∃x, BoundedAwayNeg (a' x)) by
+    have haa' (x) : Sequence.Equiv a (a' x) := Sequence.equiv_iff _ _ |>.mpr 
+      fun ε εpos => ⟨N, fun n hn => by simp [a', not_lt.mpr hn, le_of_lt εpos]⟩
+    have ha' (x) : Sequence.IsCauchy (a' x) := Sequence.isCauchy_of_equiv (haa' x) |>.mp ha
+    have haa'_lim_eq {x} := LIM_eq_LIM ha (ha' x) |>.mpr (haa' x)
+    rcases this with this|this
+    · exact Or.inl ⟨a' _, this.choose_spec, ha' _, haa'_lim_eq⟩
+    · exact Or.inr ⟨a' _, this.choose_spec, ha' _, haa'_lim_eq⟩
+
+  -- use hzero to obtain a point after N when a n > ε
+  replace ⟨n, hn, hzero⟩ := hzero N
+
+  -- since all the values in the sequence have the same sign, we use the known
+  -- point as the first point to compare in the definition of IsCauchy
+  specialize hN n hn
+  by_cases han0 : a n > 0
+  · refine Or.inl ⟨ε / 2, ε / 2, by positivity, fun n' => ?_⟩
+    -- because ∀n < N, a' n = ε/2, we can simplify the case away
+    by_cases hn': n' < N <;> simp [a', hn']
+    -- the other point we use is n'
+    specialize hN n' (not_lt.mp hn')
+    calc ε / 2
+    _ = ε - ε / 2 := by ring
+    _ ≤ |a n| - |a n - a n'| := sub_le_sub (le_of_lt hzero) hN
+    _ ≤ _ := le_abs_self _
+    _ ≤ |a n - (a n - a n')| := abs_abs_sub_abs_le _ _
+    _ = |a n'| := by ring_nf
+    _ = a n' := by
+      rw [abs_of_nonneg]
+      -- we will assume by contradiction that a n' < 0
+      by_contra! h
+      rw [abs_of_pos han0] at hzero
+      -- we know that a n - a n' > 0 by transitivity
+      rw [abs_of_pos (sub_pos_of_lt <| h.trans han0)] at hN
+      -- we can now set up a contradiction that ε < ε / 2
+      refine (not_lt_of_gt ?_) (div_two_lt_of_pos εpos)
+      calc ε
+      _ < a n := hzero
+      _ = a n - a n' + a n' := by ring
+      _ < ε / 2 := add_lt_of_le_of_neg hN h
+  replace han0 : a n < 0 := by
+    apply not_lt.mp at han0
+    rw [abs_of_nonpos han0] at hzero
+    linarith
+  refine Or.inr ⟨-(ε / 2), ε / 2, by positivity, fun n' => ?_⟩
+  by_cases hn': n' < N <;> simp [a', hn']
+  apply le_neg.mpr
+  specialize hN n' (not_lt.mp hn')
+  calc ε / 2
+  _ = ε - ε / 2 := by ring
+  _ ≤ |a n| - |a n - a n'| := sub_le_sub (le_of_lt hzero) hN
+  _ ≤ _ := le_abs_self _
+  _ ≤ |a n - (a n - a n')| := abs_abs_sub_abs_le _ _
+  _ = |a n'| := by ring_nf
+  _ = _ := by
+    rw [abs_of_nonpos]
+    by_contra! h
+    rw [abs_of_neg han0] at hzero
+    rw [abs_of_neg (by linarith)] at hN
+    linarith
 
 /-- Proposition 5.4.4 (basic properties of positive reals) / Exercise 5.4.1 -/
 theorem Real.not_zero_pos (x:Real) : ¬(x = 0 ∧ x.IsPos) := by sorry
@@ -128,14 +212,18 @@ theorem Real.abs_of_pos (x:Real) (hx: x.IsPos) : abs x = x := by
 /-- Definition 5.4.5 (absolute value) -/
 @[simp]
 theorem Real.abs_of_neg (x:Real) (hx: x.IsNeg) : abs x = -x := by
-  have : ¬x.IsPos := by have := not_pos_neg x; simpa [hx] using this
+  have : ¬x.IsPos := by have := not_pos_neg x; simpa only [not_exists, not_and,
+    forall_exists_index, gt_iff_lt, ge_iff_le, and_imp, hx, and_true] using this
   simp [abs, hx, this]
 
 /-- Definition 5.4.5 (absolute value) -/
 @[simp]
 theorem Real.abs_of_zero : abs 0 = 0 := by
-  have hpos: ¬(0:Real).IsPos := by have := not_zero_pos 0; simpa using this
-  have hneg: ¬(0:Real).IsNeg := by have := not_zero_neg 0; simpa using this
+  have hpos: ¬(0:Real).IsPos := by have := not_zero_pos 0; simpa only [not_exists, not_and,
+    forall_exists_index, gt_iff_lt, ge_iff_le, and_imp, true_and] using this
+  have hneg: ¬(0:Real).IsNeg := by have := not_zero_neg 0; simpa only [neg_iff_pos_of_neg,
+    neg_zero, not_exists, not_and, forall_exists_index, gt_iff_lt, ge_iff_le, and_imp,
+    true_and] using this
   simp [abs, hpos, hneg]
 
 /-- Definition 5.4.6 (Ordering of the reals) -/
