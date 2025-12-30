@@ -10,6 +10,7 @@ Heya, I have been going through the exercises and trying to fill in all the
   - Section 5.1
   - Section 5.2
   - Section 5.3
+  - Section 5.4
 
 
 # Lean formalization of _Analysis I_
