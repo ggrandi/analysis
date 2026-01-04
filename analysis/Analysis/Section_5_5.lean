@@ -38,20 +38,41 @@ theorem Real.Icc_def (x y:Real) : .Icc x y = { z | x ≤ z ∧ z ≤ y } := rfl
 /-- API for Example 5.5.2 -/
 theorem Real.mem_Icc (x y z:Real) : z ∈ Set.Icc x y ↔ x ≤ z ∧ z ≤ y := by simp [Real.Icc_def]
 
+open Real in
 /-- Example 5.5.2 -/
-example (M: Real) : M ∈ upperBounds (.Icc 0 1) ↔ M ≥ 1 := by sorry
+example (M: Real) : M ∈ upperBounds (.Icc 0 1) ↔ M ≥ 1 := by
+  rw [upperBound_def]
+  constructor
+  · intro h
+    exact h _ ⟨zero_le_one, le_refl _⟩
+  intro hM x hx
+  exact hx.right.trans hM
+
 
 /-- API for Example 5.5.3 -/
 theorem Real.Ioi_def (x:Real) : .Ioi x = { z | z > x } := rfl
 
+open Real in
 /-- Example 5.5.3 -/
-example : ¬ ∃ M : Real, M ∈ upperBounds (.Ioi 0) := by sorry
+example : ¬ ∃ M : Real, M ∈ upperBounds (.Ioi 0) := by
+  by_contra!
+  obtain ⟨M, hM⟩ := this
+  rw [mem_upperBounds] at hM
+  by_cases Mpos : M ≤ 0
+  · replace hM := hM 1
+    refine zero_lt_one.not_ge (hM ?_ |>.trans Mpos)
+    exact Set.mem_Ioi.mpr zero_lt_one
+  replace hM := mem_upperBounds.mp hM (M + 1) (not_le.mp Mpos |>.trans (lt_add_one M))
+  exact (lt_add_one M).not_ge hM
 
 /-- Example 5.5.4 -/
-example : ∀ M, M ∈ upperBounds (∅ : Set Real) := by sorry
+example : ∀ M, M ∈ upperBounds (∅ : Set Real) :=
+  fun _M => mem_upperBounds.mpr fun _x hx => hx.elim
 
 theorem Real.upperBound_upper {M M': Real} (h: M ≤ M') {E: Set Real} (hb: M ∈ upperBounds E) :
-    M' ∈ upperBounds E := by sorry
+  M' ∈ upperBounds E := by
+    refine mem_upperBounds.mpr fun x hx => ?_
+    exact mem_upperBounds.mp hb x hx |>.trans h
 
 /-- Definition 5.5.5 (least upper bound).  Here we use the `isLUB` predicate defined in Mathlib. -/
 theorem Real.isLUB_def (E: Set Real) (M: Real) :
@@ -61,13 +82,21 @@ theorem Real.isGLB_def (E: Set Real) (M: Real) :
     IsGLB E M ↔ M ∈ lowerBounds E ∧ ∀ M' ∈ lowerBounds E, M' ≤ M := by rfl
 
 /-- Example 5.5.6 -/
-example : IsLUB (.Icc 0 1) (1 : Real) := by sorry
+example : IsLUB (.Icc 0 1) (1 : Real) := by
+  refine ⟨fun x hx => hx.right, ?_⟩
+  intro M hM
+  exact hM ⟨zero_le_one, le_refl _⟩
 
 /-- Example 5.5.7 -/
-example : ¬∃ M, IsLUB (∅: Set Real) M := by sorry
+example : ¬∃ M, IsLUB (∅: Set Real) M := by
+  by_contra!
+  obtain ⟨M, _, hM⟩ := this
+  specialize hM (a := M - 1) (fun x h => h.elim)
+  exact (sub_one_lt M).not_ge hM
 
 /-- Proposition 5.5.8 (Uniqueness of least upper bound)-/
-theorem Real.LUB_unique {E: Set Real} {M M': Real} (h1: IsLUB E M) (h2: IsLUB E M') : M = M' := by grind [Real.isLUB_def]
+theorem Real.LUB_unique {E: Set Real} {M M': Real} (h1: IsLUB E M) (h2: IsLUB E M') : M = M' := by 
+  grind [Real.isLUB_def]
 
 /-- definition of "bounded above", using Mathlib notation -/
 theorem Real.bddAbove_def (E: Set Real) : BddAbove E ↔ ∃ M, M ∈ upperBounds E := Set.nonempty_def
@@ -77,10 +106,20 @@ theorem Real.bddBelow_def (E: Set Real) : BddBelow E ↔ ∃ M, M ∈ lowerBound
 /-- Exercise 5.5.2 -/
 theorem Real.upperBound_between {E: Set Real} {n:ℕ} {L K:ℤ} (hLK: L < K)
   (hK: K*((1/(n+1):ℚ):Real) ∈ upperBounds E) (hL: L*((1/(n+1):ℚ):Real) ∉ upperBounds E) :
-    ∃ m, L < m
-    ∧ m ≤ K
-    ∧ m*((1/(n+1):ℚ):Real) ∈ upperBounds E
-    ∧ (m-1)*((1/(n+1):ℚ):Real) ∉ upperBounds E := by sorry
+  ∃ m, L < m
+  ∧ m ≤ K
+  ∧ m * ((1/(n+1):ℚ):Real) ∈ upperBounds E
+  ∧ (m-1) * ((1/(n+1):ℚ):Real) ∉ upperBounds E := by
+    sorry
+    /- induction n -/
+    /- case zero => -/
+      /- by_contra!  -/
+      /- have _1 := this K hLK (le_refl _) hK -/
+      /- have (k: ℕ) : (K - k: Real) ∈ upperBounds E := by -/
+      /-   induction k -/
+      /-   case zero => simpa using hK -/
+      /-   case succ k ih => -/
+
 
 /-- Exercise 5.5.3 -/
 theorem Real.upperBound_discrete_unique {E: Set Real} {n:ℕ} {m m':ℤ}
@@ -92,18 +131,97 @@ theorem Real.upperBound_discrete_unique {E: Set Real} {n:ℕ} {m m':ℤ}
 
 /-- Lemmas that can be helpful for proving 5.5.4 -/
 theorem Sequence.IsCauchy.abs {a:ℕ → ℚ} (ha: (a:Sequence).IsCauchy):
-  ((|a| : ℕ → ℚ) : Sequence).IsCauchy := by sorry
+  ((|a| : ℕ → ℚ) : Sequence).IsCauchy := by
+    rw [coe] at ha ⊢
+    peel 7 ha with ε εpos N j hj k hk ha
+    rw [Pi.abs_apply, Pi.abs_apply]
+    refine le_trans ?_ ha
+    exact abs_abs_sub_abs_le _ _
 
+open Sequence (IsCauchy) in
 theorem Real.LIM.abs_eq {a b:ℕ → ℚ} (ha: (a: Sequence).IsCauchy)
-    (hb: (b: Sequence).IsCauchy) (h: LIM a = LIM b): LIM |a| = LIM |b| := by sorry
+  (hb: (b: Sequence).IsCauchy) (h: LIM a = LIM b): LIM |a| = LIM |b| := by
+    rw [LIM_eq_LIM (IsCauchy.abs ha) (IsCauchy.abs hb)]
+    rw [LIM_eq_LIM ha hb] at h
+    rw [Sequence.equiv_iff] at h ⊢
+    peel 5 h with ε εpos N n hn h
+    refine le_trans ?_ h
+    exact abs_abs_sub_abs_le _ _
 
 theorem Real.LIM.abs_eq_pos {a: ℕ → ℚ} (h: LIM a > 0) (ha: (a:Sequence).IsCauchy):
-    LIM a = LIM |a| := by sorry
+  LIM a = LIM |a| := by
+    rw [LIM_eq_LIM ha (Sequence.IsCauchy.abs ha), Sequence.equiv_iff]
+    obtain ⟨b, ⟨c, cpos, hb⟩, hb', h⟩ := h
+    rw [zero_sub, neg_eq_iff_eq_neg, neg_LIM _ hb', 
+      LIM_eq_LIM ha (Sequence.IsCauchy.neg _ hb'), Sequence.equiv_iff] at h
+    intro ε εpos
+    obtain ⟨M, Mpos, hM⟩ := Sequence.isBounded_of_isCauchy hb'
+    replace hM := Sequence.boundedBy_iff.mp hM
+    by_cases hMeq: M = ε / 2
+    · sorry
+    obtain ⟨N, h⟩ := h (|ε / 2 - M|) (abs_sub_pos.mpr fun h ↦ hMeq h.symm)
+    refine ⟨N, fun n hn => ?_⟩
+    calc
+    _ = |(a n - |a n|)| := by rw [Pi.abs_apply]
+    _ ≤ |a n| + |(|a n|)| := abs_sub _ _
+    _ = 2 * |a n| := by rw [abs_abs, ← two_mul]
+    _ = 2 * |a n| := by ring_nf
+    _ ≤ 2 * (ε / 2) := by
+      refine Rat.mul_le_mul_of_nonneg_left ?_ zero_le_two 
+      have := cpos.trans_le (le_neg_of_le_neg <| hb n) |> neg_of_neg_pos
+      replace hM := _root_.abs_of_neg this ▸ hM n |> neg_le_of_neg_le
+      calc
+      _ = |a n + b n - b n| := by ring_nf
+      _ ≤ |a n + b n| + |b n| := abs_sub _ _
+      _ = |a n + b n| - b n := by rw [_root_.abs_of_neg this, ← _root_.sub_eq_add_neg]
+      /- _ ≤ |ε / 2 - M| - -M := sub_le_sub _ hM -/
+      /- _ ≤ |ε/2 - M| + M := add_le_add (by simpa using h n hn) (hM n |>.trans (le_abs_self _))  -/
+      /- _ ≤ |ε/2 - M + M| := by sorry -/
+      _ = _ := by sorry
+    _ = _ := by sorry
 
-theorem Real.LIM_abs {a:ℕ → ℚ} (ha: (a:Sequence).IsCauchy): |LIM a| = LIM |a| := by sorry
+theorem Real.LIM_abs {a:ℕ → ℚ} (ha: (a:Sequence).IsCauchy): |LIM a| = LIM |a| := by
+  wlog h: 0 < LIM a
+  · rcases le_iff_lt_or_eq.mp (not_lt.mp h) with h|h
+    · specialize this (.neg _ ha) (by rwa [← neg_LIM _ ha, neg_pos])
+      rwa [← neg_LIM _ ha, abs_neg, abs_neg] at this
+    symm
+    rw [h, abs_zero, ofNat_def, LIM_eq_LIM (.abs ha) (.const _), Sequence.equiv_iff]
+    rw [ofNat_def, LIM_eq_LIM ha (.const _), Sequence.equiv_iff] at h
+    peel 5 h with ε εpos N n hn h
+    simpa using h
+  rw [← LIM.abs_eq_pos h ha, _root_.abs_of_pos h]
 
+open Sequence.IsCauchy (coe) in
 theorem Real.LIM_of_le' {x:Real} {a:ℕ → ℚ} (hcauchy: (a:Sequence).IsCauchy)
-    (h: ∃ N, ∀ n ≥ N, a n ≤ x) : LIM a ≤ x := by sorry
+  (h: ∃ N, ∀ n ≥ N, a n ≤ x) : LIM a ≤ x := by 
+    obtain ⟨N, h⟩ := h
+    obtain ⟨q, hq⟩ := rat_between (sub_one_lt x)
+    let a' (n) := if N ≤ n then a n else q
+    have ha': Sequence.IsCauchy a' := coe _ |>.mpr (by
+      rw [coe] at hcauchy
+      rintro ε εpos
+      obtain ⟨N', h⟩ := hcauchy ε εpos
+      refine ⟨max N' N, fun j hj k hk => ?_⟩
+      convert (config := .unfoldSameFun) 
+        h j (le_of_max_le_left hj) k (le_of_max_le_left hk)
+      all_goals
+        unfold a'
+        rw [if_pos]
+        exact le_of_max_le_right (by assumption)
+    )
+    have haa': Sequence.Equiv a a' := Sequence.equiv_iff _ _ |>.mpr (by
+      refine fun ε εpos => ⟨N, fun n hn => ?_⟩
+      unfold a'
+      rw [if_pos hn, sub_self, abs_zero]
+      exact εpos.le
+    )
+    rw [LIM_eq_LIM hcauchy ha' |>.mpr haa']
+    refine LIM_of_le ha' fun n => ?_
+    unfold a'
+    split_ifs with hn 
+    · exact h _ hn
+    exact hq.right.le
 
 /-- Exercise 5.5.4 -/
 theorem Real.LIM_of_Cauchy {q:ℕ → ℚ} (hq: ∀ M, ∀ n ≥ M, ∀ n' ≥ M, |q n - q n'| ≤ 1 / (M+1)) :
