@@ -11,6 +11,7 @@ Heya, I have been going through the exercises and trying to fill in all the
   - Section 5.2
   - Section 5.3
   - Section 5.4
+  - Section 5.5
 
 
 # Lean formalization of _Analysis I_

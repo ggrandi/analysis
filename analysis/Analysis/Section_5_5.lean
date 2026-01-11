@@ -1,6 +1,6 @@
 import Mathlib.Tactic
 import Analysis.Section_5_4
-
+import Analysis.Section_4_4
 
 /-!
 # Analysis I, Section 5.5: The least upper bound property
@@ -110,16 +110,24 @@ theorem Real.upperBound_between {E: Set Real} {n:ℕ} {L K:ℤ} (hLK: L < K)
   ∧ m ≤ K
   ∧ m * ((1/(n+1):ℚ):Real) ∈ upperBounds E
   ∧ (m-1) * ((1/(n+1):ℚ):Real) ∉ upperBounds E := by
-    sorry
-    /- induction n -/
-    /- case zero => -/
-      /- by_contra!  -/
-      /- have _1 := this K hLK (le_refl _) hK -/
-      /- have (k: ℕ) : (K - k: Real) ∈ upperBounds E := by -/
-      /-   induction k -/
-      /-   case zero => simpa using hK -/
-      /-   case succ k ih => -/
-
+    by_contra! 
+    have (k: ℕ) : ((K - k) / (n + 1): Real) ∈ upperBounds E := by
+      induction k
+      case zero => simpa using hK
+      case succ k ih =>
+        replace := this (K - ↑k) ?_ (by omega) (by simpa using ih)
+        · simpa [← sub_sub] using this
+        simp [mem_upperBounds, -one_div, ← mul_div_assoc] at hL ih
+        obtain ⟨x, hx, hL⟩ := hL
+        rw [← Int.cast_lt (R := Real), Int.cast_sub, Int.cast_natCast]
+        refine div_lt_div_iff_of_pos_right ?_ |>.mp (hL.trans_le (ih x hx))
+        exact Nat.cast_add_one_pos n
+    have ⟨k, hk⟩ : ∃(k: ℕ), K = L + k := by
+      refine ⟨(K - L).toNat, ?_⟩
+      rw [Int.ofNat_toNat, max_eq_left, add_sub_cancel]
+      exact sub_nonneg.mpr hLK.le
+    apply hL
+    simpa [hk] using this k
 
 /-- Exercise 5.5.3 -/
 theorem Real.upperBound_discrete_unique {E: Set Real} {n:ℕ} {m m':ℤ}
@@ -127,58 +135,49 @@ theorem Real.upperBound_discrete_unique {E: Set Real} {n:ℕ} {m m':ℤ}
   (hm2: (((m:ℚ) / (n+1) - 1 / (n+1):ℚ):Real) ∉ upperBounds E)
   (hm'1: (((m':ℚ) / (n+1):ℚ):Real) ∈ upperBounds E)
   (hm'2: (((m':ℚ) / (n+1) - 1 / (n+1):ℚ):Real) ∉ upperBounds E) :
-    m = m' := by sorry
+    m = m' := by
+      wlog h : m ≤ m'
+      · exact this hm'1 hm'2 hm1 hm2 (le_of_not_ge h) |>.symm
+      by_contra! h'
+      replace h := lt_of_le_of_ne h h'; clear h'
+      obtain ⟨k, hk, rfl⟩ := lt_iff_exists_pos_add.mp h; clear h
+      lift k to ℕ using hk.le
+      clear *- hk hm1 hm'2
+      rw [mem_upperBounds] at hm1 hm'2
+      simp_rw [div_sub_div_same, not_forall, not_le] at hm'2
+      obtain ⟨x, hx, hm'2⟩ := hm'2
+      apply (not_lt.mpr ?_) <| hm'2.trans_le (hm1 x hx)
+      simp only [Rat.cast_div, Rat.cast_intCast, Rat.cast_add, Rat.cast_natCast, Rat.cast_one,
+        Int.cast_add, Int.cast_natCast, Rat.cast_sub]
+      rw [div_le_div_iff_of_pos_right (Nat.cast_add_one_pos n), 
+        add_sub_assoc, le_add_iff_nonneg_right, sub_nonneg,
+        Nat.one_le_cast]
+      exact Int.natCast_pos.mp hk
 
 /-- Lemmas that can be helpful for proving 5.5.4 -/
 theorem Sequence.IsCauchy.abs {a:ℕ → ℚ} (ha: (a:Sequence).IsCauchy):
   ((|a| : ℕ → ℚ) : Sequence).IsCauchy := by
     rw [coe] at ha ⊢
     peel 7 ha with ε εpos N j hj k hk ha
-    rw [Pi.abs_apply, Pi.abs_apply]
     refine le_trans ?_ ha
     exact abs_abs_sub_abs_le _ _
 
 open Sequence (IsCauchy) in
 theorem Real.LIM.abs_eq {a b:ℕ → ℚ} (ha: (a: Sequence).IsCauchy)
   (hb: (b: Sequence).IsCauchy) (h: LIM a = LIM b): LIM |a| = LIM |b| := by
-    rw [LIM_eq_LIM (IsCauchy.abs ha) (IsCauchy.abs hb)]
-    rw [LIM_eq_LIM ha hb] at h
-    rw [Sequence.equiv_iff] at h ⊢
+    rw [LIM_eq_LIM (IsCauchy.abs ha) (IsCauchy.abs hb), Sequence.equiv_iff]
+    rw [LIM_eq_LIM ha hb, Sequence.equiv_iff] at h
     peel 5 h with ε εpos N n hn h
     refine le_trans ?_ h
     exact abs_abs_sub_abs_le _ _
 
 theorem Real.LIM.abs_eq_pos {a: ℕ → ℚ} (h: LIM a > 0) (ha: (a:Sequence).IsCauchy):
   LIM a = LIM |a| := by
-    rw [LIM_eq_LIM ha (Sequence.IsCauchy.abs ha), Sequence.equiv_iff]
-    obtain ⟨b, ⟨c, cpos, hb⟩, hb', h⟩ := h
-    rw [zero_sub, neg_eq_iff_eq_neg, neg_LIM _ hb', 
-      LIM_eq_LIM ha (Sequence.IsCauchy.neg _ hb'), Sequence.equiv_iff] at h
-    intro ε εpos
-    obtain ⟨M, Mpos, hM⟩ := Sequence.isBounded_of_isCauchy hb'
-    replace hM := Sequence.boundedBy_iff.mp hM
-    by_cases hMeq: M = ε / 2
-    · sorry
-    obtain ⟨N, h⟩ := h (|ε / 2 - M|) (abs_sub_pos.mpr fun h ↦ hMeq h.symm)
-    refine ⟨N, fun n hn => ?_⟩
-    calc
-    _ = |(a n - |a n|)| := by rw [Pi.abs_apply]
-    _ ≤ |a n| + |(|a n|)| := abs_sub _ _
-    _ = 2 * |a n| := by rw [abs_abs, ← two_mul]
-    _ = 2 * |a n| := by ring_nf
-    _ ≤ 2 * (ε / 2) := by
-      refine Rat.mul_le_mul_of_nonneg_left ?_ zero_le_two 
-      have := cpos.trans_le (le_neg_of_le_neg <| hb n) |> neg_of_neg_pos
-      replace hM := _root_.abs_of_neg this ▸ hM n |> neg_le_of_neg_le
-      calc
-      _ = |a n + b n - b n| := by ring_nf
-      _ ≤ |a n + b n| + |b n| := abs_sub _ _
-      _ = |a n + b n| - b n := by rw [_root_.abs_of_neg this, ← _root_.sub_eq_add_neg]
-      /- _ ≤ |ε / 2 - M| - -M := sub_le_sub _ hM -/
-      /- _ ≤ |ε/2 - M| + M := add_le_add (by simpa using h n hn) (hM n |>.trans (le_abs_self _))  -/
-      /- _ ≤ |ε/2 - M + M| := by sorry -/
-      _ = _ := by sorry
-    _ = _ := by sorry
+    obtain ⟨b, ⟨c, cpos, hb⟩, hb', heq⟩ := isPos_iff'.mpr h
+    rw [heq, abs_eq ha hb' heq, LIM_eq_LIM hb' (Sequence.IsCauchy.abs hb'), Sequence.equiv_iff]
+    refine fun ε εpos => ⟨0, fun n _ => ?_⟩
+    simpa only [Pi.abs_apply, cpos.trans_le (hb n), _root_.abs_of_pos, sub_self, abs_zero] using
+      εpos.le
 
 theorem Real.LIM_abs {a:ℕ → ℚ} (ha: (a:Sequence).IsCauchy): |LIM a| = LIM |a| := by
   wlog h: 0 < LIM a
@@ -190,7 +189,7 @@ theorem Real.LIM_abs {a:ℕ → ℚ} (ha: (a:Sequence).IsCauchy): |LIM a| = LIM 
     rw [ofNat_def, LIM_eq_LIM ha (.const _), Sequence.equiv_iff] at h
     peel 5 h with ε εpos N n hn h
     simpa using h
-  rw [← LIM.abs_eq_pos h ha, _root_.abs_of_pos h]
+  rw [_root_.abs_of_pos h, ← LIM.abs_eq_pos h ha, ]
 
 open Sequence.IsCauchy (coe) in
 theorem Real.LIM_of_le' {x:Real} {a:ℕ → ℚ} (hcauchy: (a:Sequence).IsCauchy)
@@ -223,9 +222,24 @@ theorem Real.LIM_of_le' {x:Real} {a:ℕ → ℚ} (hcauchy: (a:Sequence).IsCauchy
     · exact h _ hn
     exact hq.right.le
 
+open Sequence.IsCauchy (coe const sub) in
 /-- Exercise 5.5.4 -/
 theorem Real.LIM_of_Cauchy {q:ℕ → ℚ} (hq: ∀ M, ∀ n ≥ M, ∀ n' ≥ M, |q n - q n'| ≤ 1 / (M+1)) :
-    (q:Sequence).IsCauchy ∧ ∀ M, |q M - LIM q| ≤ 1 / (M+1) := by sorry
+  (q:Sequence).IsCauchy ∧ ∀ M, |q M - LIM q| ≤ 1 / (M+1) := by
+    have hq' : (q:Sequence).IsCauchy := coe _ |>.mpr (fun ε εpos => by
+      obtain ⟨M, hM⟩ := exists_nat_ge (1 / ε - 1)
+      refine ⟨M, ?_⟩
+      peel 4 (hq M) with j hj k hk hq
+      refine le_trans hq ?_
+      rwa [one_div_le (Nat.cast_add_one_pos _) εpos, ← OrderedSub.tsub_le_iff_right]
+    )
+    refine ⟨hq', fun M => ?_⟩
+    have := sub (const (q M)) hq'
+    rw [ratCast_def, LIM_sub (const _) hq', LIM_abs this]
+    refine LIM_of_le' (Sequence.IsCauchy.abs this) ⟨M, ?_⟩
+    peel 2 (hq M M (le_refl _)) with n hn hq
+    rw [← Rat.cast_one, ← Rat.cast_natCast, ← Rat.cast_add, ← Rat.cast_div, Rat.cast_le]
+    simpa using hq
 
 /--
 The sequence m₁, m₂, … is well-defined.
@@ -236,7 +250,7 @@ lemma Real.LUB_claim1 (n : ℕ) {E: Set Real} (hE: Set.Nonempty E) (hbound: BddA
       (((m:ℚ) / (n+1):ℚ):Real) ∈ upperBounds E
       ∧ ¬ (((m:ℚ) / (n+1) - 1 / (n+1):ℚ):Real) ∈ upperBounds E := by
   set x₀ := Set.Nonempty.some hE
-  observe hx₀ : x₀ ∈ E
+  have hx₀ : x₀ ∈ E := Set.Nonempty.some_mem hE
   set ε := ((1/(n+1):ℚ):Real)
   have hpos : ε.IsPos := by simp [isPos_iff, ε]; positivity
   apply existsUnique_of_exists_of_unique
@@ -376,9 +390,9 @@ theorem Real.exist_sqrt_two : ∃ x:Real, x^2 = 2 := by
       _ ≤ 2 * 2 := by norm_num
       _ ≤ y * y := by gcongr
       _ = y^2 := by ring
-  have claim1' : BddAbove E := by rw [bddAbove_def]; use 2
+  have claim1' : BddAbove E := ⟨2, claim1⟩
   have claim2: 1 ∈ E := by simp [E]
-  observe claim2': E.Nonempty
+  have claim2' : E.Nonempty := Set.nonempty_of_mem claim2
   set x := ((ExtendedReal.sup E):Real)
   have claim3 : IsLUB E x := by grind [ExtendedReal.sup_of_bounded]
   have claim4 : x ≥ 1 := by grind [isLUB_def, upperBound_def]
@@ -389,8 +403,8 @@ theorem Real.exist_sqrt_two : ∃ x:Real, x^2 = 2 := by
       set ε := min (1/2) ((x^2-2)/8)
       have hx : x^2 - 2 > 0 := by linarith
       have hε : 0 < ε := by positivity
-      observe hε1: ε ≤ 1/2
-      observe hε2: ε ≤ (x^2-2)/8
+      have hε1 : ε ≤ 1 / 2 := min_le_left _ _
+      have hε2: ε ≤ (x^2-2)/8 := min_le_right _ _
       refine' ⟨ ε, hε, _, _ ⟩ <;> linarith
     choose ε hε1 hε2 hε3 using claim11
     have claim12: (x-ε)^2 > 2 := calc
@@ -398,10 +412,13 @@ theorem Real.exist_sqrt_two : ∃ x:Real, x^2 = 2 := by
       _ ≥ x^2 - 2 * ε * 2 + 0 * 0 := by gcongr
       _ = x^2 - 4 * ε := by ring
       _ > 2 := hε3
-    have why (y:Real) (hy: y ∈ E) : x - ε ≥ y := by sorry
+    have why (y:Real) (hy: y ∈ E) : x - ε ≥ y := by
+      refine sq_le_sq₀ hy.left ?_ |>.mp (hy.right.trans claim12).le
+      linarith
     have claim13: x-ε ∈ upperBounds E := by rwa [upperBound_def]
     have claim14: x ≤ x-ε := by grind [isLUB_def]
-    linarith
+    have := le_sub_self_iff _ |>.mp claim14
+    exact this.not_gt hε1 |>.elim
   . have claim7 : ∃ ε, 0 < ε ∧ ε < 1 ∧ x^2 + 5*ε < 2 := by
       set ε := min (1/2) ((2-x^2)/10)
       have hx : 2 - x^2 > 0 := by linarith
@@ -421,16 +438,30 @@ theorem Real.exist_sqrt_two : ∃ x:Real, x^2 = 2 := by
   assumption
 
 /-- Remark 5.5.13 -/
-theorem Real.exist_irrational : ∃ x:Real, ¬ ∃ q:ℚ, x = (q:Real) := by sorry
+abbrev Real.Irrat (x: Real) : Prop := ¬ ∃ q:ℚ, x = (q:Real)
+
+theorem Real.irrat_sqrt_two {x: Real} (hx : x ^ 2 = 2) : Irrat x  := by
+  contrapose! hx
+  obtain ⟨q, rfl⟩ := hx
+  rw [← Rat.cast_pow, ← Rat.cast_ofNat, ne_eq, Real.ratCast_inj]
+  exact (not_exists.mp Rat.not_exist_sqrt_two) q
+
+theorem Real.exist_irrational : ∃ x:Real, ¬ ∃ q:ℚ, x = (q:Real) := by
+  obtain ⟨x, hx⟩ := exist_sqrt_two
+  exact ⟨x, irrat_sqrt_two hx⟩
 
 /-- Helper lemma for Exercise 5.5.1. -/
 theorem Real.mem_neg (E: Set Real) (x:Real) : x ∈ -E ↔ -x ∈ E := Set.mem_neg
 
 /-- Exercise 5.5.1-/
-theorem Real.inf_neg {E: Set Real} {M:Real} (h: IsLUB E M) : IsGLB (-E) (-M) := by sorry
+theorem Real.inf_neg {E: Set Real} {M:Real} (h: IsLUB E M) : IsGLB (-E) (-M) := by
+  simpa [isLUB_def, mem_upperBounds, mem_lowerBounds] using h
 
 theorem Real.GLB_exist {E: Set Real} (hE: Set.Nonempty E) (hbound: BddBelow E): ∃ S, IsGLB E S := by
-  sorry
+  obtain ⟨M, hM⟩ := LUB_exist (Set.Nonempty.neg hE) (BddBelow.neg hbound)
+  refine ⟨-M, ?_⟩
+  rw [← neg_neg E]
+  exact inf_neg hM
 
 open Classical in
 noncomputable abbrev ExtendedReal.inf (E: Set Real) : ExtendedReal :=
@@ -449,8 +480,49 @@ theorem ExtendedReal.inf_of_bounded_finite {E: Set Real} (hnon: E.Nonempty) (hb:
     (inf E).IsFinite := by simp [inf, hnon, hb, IsFinite]
 
 /-- Exercise 5.5.5 -/
+
+theorem Real.Irrat_add { q: ℚ } (hx: Irrat x) : Irrat (x + q) := by
+  contrapose! hx
+  obtain ⟨r, hr⟩ := hx
+  refine ⟨r - q, ?_⟩
+  rw [Rat.cast_sub]
+  exact eq_sub_of_add_eq hr
+
+theorem Real.Irrat_mul { q: ℚ } (hq : q ≠ 0) (hx: Irrat x) : Irrat (x * q) := by
+  contrapose! hx
+  obtain ⟨r, hr⟩ := hx
+  refine ⟨r / q, ?_⟩
+  rw [Rat.cast_div, ← hr]
+  exact mul_div_cancel_right₀ x (Rat.cast_ne_zero.mpr hq) |>.symm
+
 theorem Real.irrat_between {x y:Real} (hxy: x < y) :
-    ∃ z, x < z ∧ z < y ∧ ¬ ∃ q:ℚ, z = (q:Real) := by sorry
+    ∃ z, x < z ∧ z < y ∧ ¬ ∃ q:ℚ, z = (q:Real) := by
+      suffices ∃z, 0 < z ∧ z < 1 ∧ Irrat z by
+        obtain ⟨z, h0z, hz1, hz⟩ := this
+        obtain ⟨r, hxr, hry⟩ := rat_between hxy; clear hxy
+        obtain ⟨q, hrq, hqy⟩ := rat_between hry; clear hry
+        suffices ∃ (z: Real), r < z ∧ z < q ∧ Irrat z by
+          obtain ⟨z, hrz, hzq, hz⟩ := this
+          exact ⟨z, hxr.trans hrz, hzq.trans hqy, hz⟩
+        clear hxr hqy
+        obtain ⟨d, hd, rfl⟩ := lt_iff_exists_pos_add.mp (Rat.cast_lt.mp hrq); clear hrq
+        refine ⟨r + z * d, ?_, ?_, ?_⟩
+        · exact lt_add_iff_pos_right _ |>.mpr (by positivity)
+        · rw [Rat.cast_add]
+          refine add_lt_add_iff_left _ |>.mpr ?_
+          exact mul_lt_of_lt_one_left (Rat.cast_pos.mpr hd) hz1
+        rw [add_comm]
+        refine Irrat_add ?_ 
+        exact Irrat_mul hd.ne.symm hz
+      obtain ⟨z, hz⟩ := exist_sqrt_two
+      wlog zpos: 0 ≤ z
+      · exact this hxy (-z) (by rwa [neg_sq]) (by linarith)
+      replace zpos := lt_of_le_of_ne' zpos (fun h => by simp [h] at hz)
+      refine ⟨z * (2⁻¹: ℚ), by positivity, ?_, Irrat_mul (by norm_num) (irrat_sqrt_two hz)⟩
+      rw [Rat.cast_inv]
+      refine div_lt_one₀ (by norm_num) |>.mpr ?_
+      refine sq_lt_sq₀ zpos.le zero_le_two |>.mp (hz.symm ▸ ?_)
+      norm_num
 
 /- Use the notion of supremum in this section to define a Mathlib `sSup` operation -/
 noncomputable instance Real.inst_SupSet : SupSet Real where
@@ -464,5 +536,9 @@ noncomputable instance Real.inst_conditionallyCompleteLattice :
 
 theorem ExtendedReal.sSup_of_bounded {E: Set Real} (hnon: E.Nonempty) (hb: BddAbove E) :
     IsLUB E (sSup E) := sup_of_bounded hnon hb
+
+
+theorem Real.isLUB_sSup {a: Real} (hnon: s.Nonempty) (hb: BddAbove s)  : IsLUB s a ↔ sSup s = a :=
+  ⟨LUB_unique (ExtendedReal.sup_of_bounded hnon hb), fun h => h ▸ ExtendedReal.sSup_of_bounded hnon hb⟩
 
 end Chapter5
