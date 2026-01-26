@@ -730,6 +730,10 @@ theorem Real.ratPow_pos {x:Real} (hx: x > 0) (q:ℚ) : x^q > 0 := by
   refine zpow_pos _ ?_
   exact root_pos_of_pos hx q.den_pos
 
+theorem Real.ratPow_nonneg {x:Real} (hx: x ≥ 0) (q:ℚ) : x^q ≥ 0 := by
+  refine zpow_nonneg _ ?_
+  exact root_nonneg hx q.den_pos
+
 /-- Lemma 5.6.9(b) / Exercise 5.6.2 -/
 theorem Real.ratPow_add {x:Real} (hx: x > 0) (q r:ℚ) : x^(q+r) = x^q * x^r := by
   by_cases hq : q = 0
