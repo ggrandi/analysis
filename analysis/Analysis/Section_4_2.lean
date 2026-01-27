@@ -771,8 +771,8 @@ abbrev Rat.equivRat_order : Rat ≃o ℚ where
     obtain ⟨x1, x2, hx2, rfl⟩ := eq_diff x
     obtain ⟨y1, y2, hy2, rfl⟩ := eq_diff y
     simp only [Equiv.coe_fn_mk, Quotient.lift_mk, ne_eq, hx2, not_false_eq_true, ↓reduceDIte, hy2,
-      le_iff_lt_or_eq, _root_.Rat.lt_iff, num_mkRat_of_div, gt_iff_lt, den_mkRat_of_div,
-      Int.natCast_ediv, Nat.cast_natAbs, Int.cast_abs, Int.cast_eq, Rat.eq_iff_mul_eq_mul, eq]
+      _root_.Rat.le_iff, num_mkRat_of_div, gt_iff_lt, den_mkRat_of_div,
+      Int.natCast_ediv, Nat.cast_natAbs, Int.cast_abs, Int.cast_eq]
     -- This is to clean up the normalizing factors introduced by the mathlib ℚ implementation
     set xn := x2.natAbs.gcd x1.natAbs
     have hxn : ↑xn ∣ x1 ∧ ↑xn ∣ x2 := by
@@ -788,28 +788,9 @@ abbrev Rat.equivRat_order : Rat ≃o ℚ where
     have hyn'' : 0 < (yn: ℤ) := lt_of_le_of_ne (Int.natCast_nonneg _) hyn'.symm
     conv =>
       lhs
-      congr
       · rw [mul_comm,
-          ← Int.mul_lt_mul_left hyn'',
-          ← Int.mul_lt_mul_right hxn'',
-        ]
-        congr; all_goals
-          rw [← mul_assoc, mul_assoc, mul_comm]
-        · simp [hyn, Int.mul_ediv_cancel']
-          rw [Int.ediv_mul_cancel (by
-            split_ifs
-            · exact hxn.left
-            exact Int.dvd_neg.mpr hxn.left
-          )]
-        · simp [hxn, Int.ediv_mul_cancel]
-          rw [Int.mul_ediv_cancel' (by
-            split_ifs
-            · exact hyn.left
-            exact Int.dvd_neg.mpr hyn.left
-          )]
-      · rw [mul_comm,
-          ← Int.mul_eq_mul_left_iff hyn',
-          ← Int.mul_eq_mul_right_iff hxn',
+          ← Int.mul_le_mul_left hyn'',
+          ← Int.mul_le_mul_right hxn'',
         ]
         congr; all_goals
           rw [← mul_assoc, mul_assoc, mul_comm]
@@ -827,9 +808,8 @@ abbrev Rat.equivRat_order : Rat ≃o ℚ where
           )]
     clear hyn'' hyn' hyn yn hxn'' hxn' hxn xn
     -- Now we can change the goal from ≤ iff to a < iff
-    rw [mul_comm y1 x2]
+    rw [le_iff_eq_or_lt, le_iff_eq_or_lt, eq _ _ hx2 hy2, mul_comm y1 x2]
     -- Change the ≤ iff to a < iff
-    conv => congr <;> rw [or_comm]
     refine or_congr ?_ ?_
     · constructor
       · rintro h
@@ -862,8 +842,6 @@ abbrev Rat.equivRat_order : Rat ≃o ℚ where
           · exact Int.neg_nonneg_of_nonpos <| not_lt.mp hy
         · simp [hx2, hy2]
       simp [hx, hy, hx2, hy2, not_lt.mp, abs_of_nonpos, this, lt_iff_of_pos_denominator, mul_comm]
-
-/- example {a b c: ℚ} : a * b / (c * b) = a / c := by apply? -/
 
 /-- Not in textbook: equivalence preserves ring operations -/
 abbrev Rat.equivRat_ring : Rat ≃+* ℚ where
