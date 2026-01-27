@@ -78,12 +78,12 @@ theorem Rat.not_exist_sqrt_two : ¬ ∃ x:ℚ, x^2 = 2 := by
   . apply this _ _ _ (show -x>0 by simp; order) <;> grind
   have hrep : ∃ p q:ℕ, p > 0 ∧ q > 0 ∧ p^2 = 2*q^2 := by
     use x.num.toNat, x.den
-    observe hnum_pos : x.num > 0
-    observe hden_pos : x.den > 0
-    refine ⟨ by simp [hpos], hden_pos, ?_ ⟩
+    have hnum_pos : x.num > 0 := num_pos.mpr hpos
+    have hden_pos : x.den > 0 := den_pos x
+    refine ⟨ Int.pos_iff_toNat_pos.mp hnum_pos, hden_pos, ?_ ⟩
     rw [←num_div_den x] at hx; field_simp at hx
     have hnum_cast : x.num = x.num.toNat := Int.eq_natCast_toNat.mpr (by positivity)
-    rw [hnum_cast] at hx; norm_cast at hx
+    rw [hnum_cast, mul_comm] at hx; norm_cast at hx
   set P : ℕ → Prop := fun p ↦ p > 0 ∧ ∃ q > 0, p^2 = 2*q^2
   have hP : ∃ p, P p := by aesop
   have hiter (p:ℕ) (hPp: P p) : ∃ q, q < p ∧ P q := by

@@ -8,13 +8,15 @@ package «Analysis» where
   ]
   -- Settings applied only to command line builds
   moreLeanArgs := #[
-    "-Dwarn.sorry=false" -- suppress warnings about `sorry` on the command line; remove when project is complete
+    /- "-Dwarn.sorry=false" -- suppress warnings about `sorry` on the command line; remove when project is complete -/
   ]
   -- add any additional package configuration options here
 
+def lean_version := "v4.27.0"
+
 -- Require Mathlib (the comprehensive library of mathematics in Lean)
 require mathlib from git
-  "https://github.com/leanprover-community/mathlib4.git" @ "v4.23.0-rc2"
+  "https://github.com/leanprover-community/mathlib4.git" @ lean_version
 
 -- This library is needed to build the online version.
 -- If ../book/lakefile.lean requires verso @ "v4.X.Y", then this line should require
@@ -36,7 +38,7 @@ lean_exe "literate-extract" where
 
 meta if get_config? env = some "dev" then
 require «doc-gen4» from git
-  "https://github.com/leanprover/doc-gen4" @ "v4.23.0-rc2"
+  "https://github.com/leanprover/doc-gen4" @ lean_version
 
 
 module_facet literate mod : System.FilePath := do

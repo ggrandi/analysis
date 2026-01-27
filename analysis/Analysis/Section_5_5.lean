@@ -180,11 +180,17 @@ theorem Real.LUB_exist {E: Set Real} (hE: Set.Nonempty E) (hbound: BddAbove E): 
     have : LIM b = 0 := LIM.harmonic
     simp [←LIM_sub claim3 hb, S, this]
   rw [isLUB_def, upperBound_def]
-  split_ands
-  . intros; apply LIM_of_ge claim3; grind [upperBound_def]
+  constructor
+  . intro x hx
+    refine LIM_of_ge claim3 fun n => ?_
+    simp_all only [one_div, Rat.cast_div, Rat.cast_intCast, Rat.cast_add, Rat.cast_natCast, Rat.cast_one,
+      Rat.cast_sub, Rat.cast_inv, Pi.sub_apply, ge_iff_le, x₀, b, a, m, S]
+    exact hm1 _ hx
   intro y hy
   have claim5 (n:ℕ) : y ≥ (a-b) n := by contrapose! hm2; use n; apply upperBound_upper _ hy; order
-  rw [claim4]; apply LIM_of_le _ claim5; solve_by_elim [Sequence.IsCauchy.sub]
+  rw [claim4]
+  refine LIM_of_le ?_ claim5
+  exact claim3.sub hb
 
 /-- A bare-bones extended real class to define supremum. -/
 inductive ExtendedReal where

@@ -174,7 +174,7 @@ theorem close_mul_mul' {ε δ x y z w:ℚ} (hxy: ε.Close x y) (hzw: δ.Close z 
     sorry
 
 /-- Definition 4.3.9 (exponentiation).  Here we use the Mathlib definition.-/
-lemma pow_zero (x:ℚ) : x^0 = 1 := rfl
+lemma pow_zero (x:ℚ) : x^0 = 1 := Rat.pow_zero _
 
 example : (0:ℚ)^0 = 1 := pow_zero 0
 

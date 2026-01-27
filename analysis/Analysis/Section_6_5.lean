@@ -66,7 +66,8 @@ theorem Sequence.lim_of_power_decay {k:ℕ} :
     simp only [HPow.hPow, Pow.pow, a]; split_ifs with h <;> simp
     rw [←Real.rpow_natCast,←Real.rpow_mul (by positivity)]
     convert Real.rpow_one _; field_simp
-  simp [lim_eq, ha', pow_eq_zero hlim]
+    exact Nat.cast_add_one k
+  simp [lim_eq, ha', eq_zero_of_pow_eq_zero hlim]
 
 /-- Lemma 6.5.2 / Exercise 6.5.2 -/
 theorem Sequence.lim_of_geometric {x:ℝ} (hx: |x| < 1) : ((fun (n:ℕ) ↦ x^n):Sequence).TendsTo 0 := by

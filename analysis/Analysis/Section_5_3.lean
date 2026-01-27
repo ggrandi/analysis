@@ -371,11 +371,12 @@ theorem Real.inv_isCauchy_of_boundedAwayZero {a:ℕ → ℚ} (ha: BoundedAwayZer
   intro ε hε; specialize ha_cauchy (c^2 * ε) (by positivity)
   choose N ha_cauchy using ha_cauchy; use N;
   peel 4 ha_cauchy with n hn m hm ha_cauchy
-  calc
-    _ = |(a m - a n) / (a m * a n)| := by congr; field_simp [ha' m, ha' n]; grind
-    _ ≤ |a m - a n| / c^2 := by rw [abs_div, abs_mul, sq]; gcongr <;> solve_by_elim
+  calc |a⁻¹ n - a⁻¹ m|
+    _ = |(a m - a n) / (a n * a m)| := by 
+      rw [Pi.inv_apply, Pi.inv_apply, inv_sub_inv (ha' _) (ha' _)]
+    _ ≤ |a m - a n| / c^2 := by rw [abs_div, abs_mul, sq]; gcongr <;> exact ha _
     _ = |a n - a m| / c^2 := by rw [abs_sub_comm]
-    _ ≤ (c^2 * ε) / c^2 := by gcongr
+    _ ≤ (c^2 * ε) / c^2 := div_le_div_of_nonneg_right ha_cauchy (by positivity)
     _ = ε := by field_simp [hc]
 
 /-- Lemma 5.3.17 (Reciprocation is well-defined) -/
@@ -410,7 +411,7 @@ theorem Real.inv_def {a:ℕ → ℚ} (h: BoundedAwayZero a) (hc: (a:Sequence).Is
   observe hx : LIM a ≠ 0
   set x := LIM a
   have ⟨ h1, h2, h3 ⟩ := (boundedAwayZero_of_nonzero hx).choose_spec
-  simp [instInv, hx, -Quotient.eq]
+  simp [instInv, hx]
   exact inv_of_equiv h2 h1 h hc h3.symm
 
 @[simp]
