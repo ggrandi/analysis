@@ -3,6 +3,8 @@ import Analysis.Section_5_1
 import Analysis.Section_5_3
 import Analysis.Section_5_epilogue
 
+set_option profiler true
+
 /-!
 # Analysis I, Section 6.1: Convergence and limit laws
 
@@ -126,7 +128,8 @@ lemma Sequence.IsCauchy.coe (a:ℕ → ℝ) :
     intro j hj k hk
     simp [Real.steady_def] at h'
     specialize h' j ?_ k ?_ <;> try omega
-    simp_all
+    simp_all only [gt_iff_lt, ge_iff_le, Nat.cast_le, ↓reduceIte, Nat.cast_nonneg,
+      Int.toNat_natCast]
   rintro ⟨ N, h' ⟩; refine ⟨ max N 0, by simp, ?_ ⟩
   intro n hn m hm; simp at hn hm
   have npos : 0 ≤ n := by omega
@@ -147,7 +150,7 @@ lemma Sequence.IsCauchy.mk {n₀:ℤ} (a: {n // n ≥ n₀} → ℝ) :
     simp only [Real.Steady, show max n₀ N = N by omega] at h'
     specialize h' j ?_ k ?_ <;> try omega
     simp_all [show n₀ ≤ j by omega, show n₀ ≤ k by omega]
-  rintro ⟨ N, _, _ ⟩; use max n₀ N; grind
+  rintro ⟨ N, _, _ ⟩; use max n₀ N; grind only [= max_def]
 
 @[coe]
 abbrev Sequence.ofChapter5Sequence (a: Chapter5.Sequence) : Sequence :=
@@ -164,10 +167,21 @@ instance Chapter5.Sequence.inst_coe_sequence : Coe Chapter5.Sequence Sequence wh
 theorem Chapter5.coe_sequence_eval (a: Chapter5.Sequence) (n:ℤ) : (a:Sequence) n = (a n:ℝ) := rfl
 
 theorem Sequence.is_steady_of_rat (ε:ℚ) (a: Chapter5.Sequence) :
-    ε.Steady a ↔ (ε:ℝ).Steady (a:Sequence) := by sorry
+    ε.Steady a ↔ (ε:ℝ).Steady (a:Sequence) := by
+      simp [Rat.steady_def, Real.steady_def, Rat.Close, dist, ← Rat.cast_sub, ← Rat.cast_abs]
 
 theorem Sequence.is_eventuallySteady_of_rat (ε:ℚ) (a: Chapter5.Sequence) :
-    ε.EventuallySteady a ↔ (ε:ℝ).EventuallySteady (a:Sequence) := by sorry
+  ε.EventuallySteady a ↔ (ε:ℝ).EventuallySteady (a:Sequence) := by
+    simp [Rat.eventuallySteady_def, Real.eventuallySteady_def, is_steady_of_rat]
+    peel with n hn
+    have : ofChapter5Sequence (a.from n) = (ofChapter5Sequence a).from n := by
+      simp [ofChapter5Sequence]
+      ext m
+      by_cases hm: n ≤ m
+      · simp [hn.trans hm, hm]
+      have : ¬(a.n₀ ≤ m ∧ n ≤ m) := fun h => hm h.2
+      simp [this]
+    rw [this]
 
 /-- Proposition 6.1.4 -/
 theorem Sequence.isCauchy_of_rat (a: Chapter5.Sequence) : a.IsCauchy ↔ (a:Sequence).IsCauchy := by
@@ -228,7 +242,17 @@ theorem Sequence.tendsTo_def (a:Sequence) (L:ℝ) :
 
 /-- Exercise 6.1.2 -/
 theorem Sequence.tendsTo_iff (a:Sequence) (L:ℝ) :
-  a.TendsTo L ↔ ∀ ε > 0, ∃ N, ∀ n ≥ N, |a n - L| ≤ ε := by sorry
+  a.TendsTo L ↔ ∀ ε > 0, ∃ N, ∀ n ≥ N, |a n - L| ≤ ε := by
+    rw [tendsTo_def]
+    peel with ε εpos
+    constructor
+    · rintro ⟨N, hN⟩
+      refine ⟨N, fun n hn => ?_⟩
+      have := hN.2 n (by simp [hN.1.trans hn, hn])
+      simpa [hN.1.trans hn, hn] using this
+    refine fun ⟨N, hN⟩ => ⟨max N a.m, le_max_right _ _, fun n hn => ?_⟩
+    simp at hn
+    simpa [hn] using hN _ hn.1
 
 noncomputable def seq_6_1_6 : Sequence := (fun (n:ℕ) ↦ 1-(10:ℝ)^(-(n:ℤ)-1):Sequence)
 
@@ -250,10 +274,36 @@ example : ¬ (0.01:ℝ).CloseSeq seq_6_1_6 1 := by
   intro h; specialize h 0 (by positivity); simp [seq_6_1_6] at h; norm_num at h
 
 /-- Examples 6.1.6 -/
-example : (0.01:ℝ).EventuallyClose seq_6_1_6 1 := by sorry
+example : (0.01:ℝ).EventuallyClose seq_6_1_6 1 := by
+  rw [Real.eventuallyClose_def]
+  refine ⟨2, zero_le_two, ?_⟩
+  simp [Real.closeSeq_def, seq_6_1_6]
+  intro n hn
+  simp [hn, zero_le_two.trans hn]
+  rw [← neg_add', show 1e-2 = (10: ℝ) ^ (-2: ℤ) by norm_num]
+  refine zpow_le_zpow_right₀ (by norm_num) ?_
+  omega
 
+open Sequence in
 /-- Examples 6.1.6 -/
-example : seq_6_1_6.TendsTo 1 := by sorry
+example : seq_6_1_6.TendsTo 1 := by
+  refine tendsTo_iff _ _ |>.mpr fun ε εpos => ?_
+  obtain ⟨N, hN⟩ := exists_nat_ge (-(Real.log ε / Real.log 10))
+  refine ⟨N, fun n hn => ?_⟩
+  simp [seq_6_1_6, Nat.cast_nonneg _ |>.trans hn]
+  refine le_trans (b := 10 ^ (-N: ℤ)) ?_ ?_
+  · refine zpow_le_zpow_right₀ (by norm_num) ?_
+    omega
+  refine le_trans (b := 10 ^ (Real.log ε / Real.log 10)) ?_ ?_
+  · refine Real.le_rpow_of_log_le (by norm_num) ?_
+    simp [← neg_mul]
+    refine mul_le_mul_of_nonneg_right ?_ (Real.log_nonneg <| by norm_num) 
+    exact neg_le.mp hN
+  have : 10 ^ (Real.log ε / Real.log 10) = ε := by
+    refine Real.log_injOn_pos (Real.rpow_pos_of_pos (by norm_num) _) εpos ?_
+    rw [Real.log_rpow (by norm_num), div_mul_cancel₀]
+    exact (Real.log_pos <| by norm_num).ne'
+  exact this.symm ▸ le_refl _
 
 /-- Proposition 6.1.7 (Uniqueness of limits) -/
 theorem Sequence.tendsTo_unique (a:Sequence) {L L':ℝ} (h:L ≠ L') :
@@ -261,9 +311,9 @@ theorem Sequence.tendsTo_unique (a:Sequence) {L L':ℝ} (h:L ≠ L') :
   -- This proof is written to follow the structure of the original text.
   by_contra this
   choose hL hL' using this
-  replace h : L - L' ≠ 0 := by grind
-  replace h : |L-L'| > 0 := by positivity
-  set ε := |L-L'| / 3
+  replace h : L - L' ≠ 0 := sub_ne_zero_of_ne h
+  replace h : |L - L'| > 0 := by positivity
+  set ε := |L - L'| / 3
   have hε : ε > 0 := by positivity
   rw [tendsTo_iff] at hL hL'
   specialize hL ε hε; choose N hN using hL
@@ -271,12 +321,14 @@ theorem Sequence.tendsTo_unique (a:Sequence) {L L':ℝ} (h:L ≠ L') :
   set n := max N M
   specialize hN n (by omega)
   specialize hM n (by omega)
-  have : |L-L'| ≤ 2 * |L-L'|/3 := calc
+  have := calc |L-L'|
     _ = dist L L' := by rw [Real.dist_eq]
     _ ≤ dist L (a.seq n) + dist (a.seq n) L' := dist_triangle _ _ _
     _ ≤ ε + ε := by rw [←Real.dist_eq] at hN hM; rw [dist_comm] at hN; gcongr
-    _ = 2 * |L-L'|/3 := by grind
-  linarith
+    _ = |L-L'| * (2/3) := by grind
+  replace := one_le_of_le_mul_left₀ h this
+  replace := one_le_div₀ (zero_lt_three) |>.mp this
+  exact this.not_gt (by norm_num)
 
 /-- Definition 6.1.8 -/
 abbrev Sequence.Convergent (a:Sequence) : Prop := ∃ L, a.TendsTo L
@@ -333,24 +385,96 @@ theorem Sequence.lim_harmonic :
         _ ≤ _ := le_abs_self _
     _ ≤ ε := by
       rw [inv_le_comm₀] <;> try positivity
-      rw [←inv_eq_one_div _] at hN; order
+      rw [←inv_eq_one_div _] at hN; exact hN.le
 
 /-- Proposition 6.1.12 / Exercise 6.1.5 -/
 theorem Sequence.IsCauchy.convergent {a:Sequence} (h:a.Convergent) : a.IsCauchy := by
-  sorry
+  obtain ⟨L, hL⟩ := h
+  intro ε εpos
+  replace ⟨N, hL⟩ := tendsTo_iff _ _ |>.mp hL (ε/2) (half_pos εpos)
+  refine ⟨max N a.m, le_max_right _ _, fun j hj k hk => ?_⟩
+  simp only [le_max_right, max_eq_right, ge_iff_le, max_le_iff] at hj hk ⊢
+  simp only [hj, hk, ↓reduceDIte, true_and]
+  calc |a.seq j - a.seq k|
+    _ = |a.seq j - L - (a.seq k - L)| := by ring_nf
+    _ ≤ |a.seq j - L| + |a.seq k - L| := abs_sub _ _
+    _ ≤ ε / 2 + ε / 2 := add_le_add (hL _ hj.1) (hL _ hk.1)
+    _ = ε := add_halves _
+
+namespace example_6_1_13
+
+abbrev seq := (fun n ↦ (-1:ℝ)^n:Sequence)
 
 /-- Example 6.1.13 -/
-example : ¬ (0.1:ℝ).EventuallySteady ((fun n ↦ (-1:ℝ)^n):Sequence) := by sorry
+theorem seq.not_EventuallySteady : ¬ (0.1:ℝ).EventuallySteady seq := by
+  rw [Real.eventuallySteady_def]
+  push_neg
+  intro N hm
+  rw [Real.steady_def]
+  push_neg
+  have Nnonneg : 0 ≤ N := by simpa using hm
+  lift N to ℕ using Nnonneg
+  have : 0 ≤ (N + 1: ℤ) := Int.succ_ofNat_pos N |>.le
+  refine ⟨N, ?_, N + 1, ?_, ?_⟩ <;> simp [this]
+  calc (|(-1)^N - (-1)^N.succ|: ℝ)
+  _ = 2 * |(-1)^N| := by grind
+  _ = 2 * 1 := by rw [abs_pow, abs_neg, abs_one, one_pow]
+  _ > 0.1 := by norm_num
 
 /-- Example 6.1.13 -/
-example : ¬ ((fun n ↦ (-1:ℝ)^n):Sequence).IsCauchy := by sorry
+theorem seq.not_IsCauchy : ¬ seq.IsCauchy := (not_EventuallySteady <| · _ (by norm_num))
 
 /-- Example 6.1.13 -/
-example : ¬ ((fun n ↦ (-1:ℝ)^n):Sequence).Convergent := by sorry
+example : ¬ seq.Convergent := (seq.not_IsCauchy <| .convergent ·)
+
+end example_6_1_13
+
+def _root_.CauSeq.abs' (a: CauSeq ℚ abs) : CauSeq ℚ abs :=
+  ⟨fun n => |a n|, by
+    peel 5 a.prop with ε εpos N i hi h
+    refine h.trans_le' ?_
+    exact abs_abs_sub_abs_le _ _
+  ⟩
+
+lemma _root_.CauSeq.abs'_apply (a: CauSeq ℚ abs) (n: ℕ) : a.abs' n = |a n| := rfl
+
+lemma _root_.CauSeq.neg_abs' (a: CauSeq ℚ abs) : (-a).abs' = a.abs' := by
+  ext n
+  simp [CauSeq.abs'_apply]
+
+theorem Real.mk_abs (a: CauSeq ℚ abs) : |Real.mk a| = Real.mk a.abs' := by 
+  wlog h : 0 < Real.mk a
+  · obtain h | h := (not_lt.mp h).eq_or_lt
+    · rw [h, abs_zero]
+      rw [← Rat.cast_zero, ← Real.mk_const, Real.mk_eq] at h ⊢
+      peel 5 h with ε εpos N n hn h
+      simpa [CauSeq.abs'_apply] using h
+    convert this (-a) (Real.mk_neg ▸ neg_pos.mpr h) using 1
+    · rw [Real.mk_neg, abs_neg]
+    exact a.neg_abs' ▸ rfl
+  rw [abs_of_pos h, Real.mk_eq]
+  rw [Real.mk_pos] at h
+  obtain ⟨K, Kpos, N, h⟩ := h
+  refine fun ε εpos => ⟨N, fun n hn => ?_⟩
+  have : 0 < a n := Kpos.trans_le (h _ hn)
+  simpa [this, CauSeq.abs'_apply, abs_of_pos]
 
 /-- Proposition 6.1.15 / Exercise 6.1.6 (Formal limits are genuine limits)-/
 theorem Sequence.lim_eq_LIM {a:ℕ → ℚ} (h: (a:Chapter5.Sequence).IsCauchy) :
-    ((a:Chapter5.Sequence):Sequence).TendsTo (Chapter5.Real.equivR (Chapter5.LIM a)) := by sorry
+  ((a:Chapter5.Sequence):Sequence).TendsTo (Chapter5.Real.equivR (Chapter5.LIM a)) := by
+    rw [Chapter5.Real.equivR_eq' h, tendsTo_iff]
+    intro ε εpos
+    obtain ⟨ε', ε'pos, hε'⟩ := exists_pos_rat_lt εpos
+    obtain ⟨N, h'⟩ := Chapter5.Sequence.IsCauchy.coe _ |>.mp h ε' ε'pos
+    refine ⟨N, fun n hn => hε'.le.trans' ?_⟩
+    lift n to ℕ using (by omega)
+    rw [ge_iff_le, Nat.cast_le] at hn
+    dsimp
+    rw [← Real.mk_const, 
+      sub_eq_add_neg, ← Real.mk_neg, ← Real.mk_add, 
+      Real.mk_abs, ← Real.mk_const, Real.mk_le]
+    refine CauSeq.le_of_exists ⟨N, fun j hj => ?_⟩
+    simpa [CauSeq.abs'_apply, ← sub_eq_add_neg] using h' n hn j hj
 
 /-- Definition 6.1.16 -/
 abbrev Sequence.BoundedBy (a:Sequence) (M:ℝ) : Prop :=
