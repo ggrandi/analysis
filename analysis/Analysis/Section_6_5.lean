@@ -39,7 +39,7 @@ lemma Sequence.pow_one (a:Sequence) : a^1 = a := by
 lemma Sequence.pow_succ (a:Sequence) (k:ℕ): a^(k+1) = a^k * a := by
   ext x
   . symm; exact Int.min_self a.m
-  . simp only [mul_eval]
+  . simp only [mul_apply]
     by_cases h: x ≥ a.m
     · simp [pow_eval h]
       rfl
