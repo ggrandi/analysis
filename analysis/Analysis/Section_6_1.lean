@@ -3,8 +3,6 @@ import Analysis.Section_5_1
 import Analysis.Section_5_3
 import Analysis.Section_5_epilogue
 
-set_option profiler true
-
 /-!
 # Analysis I, Section 6.1: Convergence and limit laws
 
@@ -246,10 +244,9 @@ theorem Sequence.tendsTo_iff (a:Sequence) (L:ℝ) :
     rw [tendsTo_def]
     peel with ε εpos
     constructor
-    · rintro ⟨N, hN⟩
-      refine ⟨N, fun n hn => ?_⟩
-      have := hN.2 n (by simp [hN.1.trans hn, hn])
-      simpa [hN.1.trans hn, hn] using this
+    · refine fun ⟨N, Ngt, hN⟩ => ⟨N, fun n hn => ?_⟩
+      have := hN n (by simp [Ngt.trans hn, hn])
+      simpa [Ngt.trans hn, hn] using this
     refine fun ⟨N, hN⟩ => ⟨max N a.m, le_max_right _ _, fun n hn => ?_⟩
     simp at hn
     simpa [hn] using hN _ hn.1
@@ -341,6 +338,10 @@ lemma Sequence.Convergent.tendsTo {a: Sequence} (ha: a.Convergent)
 
 /-- Definition 6.1.8 -/
 theorem Sequence.convergent_def (a:Sequence) : a.Convergent ↔ ∃ L, a.TendsTo L := by rfl
+
+theorem Sequence.convergent_iff (a:Sequence) : a.Convergent ↔ ∃L, ∀ ε > 0, ∃ N, ∀ n ≥ N, |a.seq n - L| ≤ ε := by
+  peel with L
+  exact tendsTo_iff _ _
 
 /-- Definition 6.1.8 -/
 abbrev Sequence.Divergent (a:Sequence) : Prop := ¬ a.Convergent
@@ -568,11 +569,41 @@ lemma Sequence.TendsTo.bounded' {a:Sequence} {L: ℝ} (h: a.TendsTo L) : ∃ M >
 theorem Sequence.bounded_of_convergent {a:Sequence} (h: a.Convergent) : a.IsBounded :=
   h.choose_spec.bounded
 
+open Sequence in
 /-- Example 6.1.18 -/
-example : ¬ ((fun (n:ℕ) ↦ (n+1:ℝ)):Sequence).IsBounded := by sorry
+example : ¬ ((fun (n:ℕ) ↦ (n+1:ℝ)):Sequence).IsBounded := by
+  rw [isBounded_iff]
+  push_neg
+  intro M Mpos
+  obtain ⟨n, hn⟩ := exists_nat_gt M
+  refine ⟨n, hn.trans ?_⟩
+  rw [coe_apply, ← Nat.cast_add_one, abs_of_nonneg (Nat.cast_nonneg _), Nat.cast_lt]
+  exact lt_add_one n
 
+open Sequence in
 /-- Example 6.1.18 -/
-example : ¬ ((fun (n:ℕ) ↦ (n+1:ℝ)):Sequence).Convergent := by sorry
+example : ¬ ((fun (n:ℕ) ↦ (n+1:ℝ)):Sequence).Convergent := by
+  rw [convergent_iff]
+  push_neg
+  intro L
+  refine ⟨1/2, half_pos zero_lt_one, fun N => ?_⟩
+  obtain ⟨n, hn⟩ := exists_nat_ge L
+  refine ⟨(max n N.natAbs: ℕ), ?_, ?_⟩
+  · simp [le_abs_self]
+  rw [coe_apply]
+  refine lt_of_lt_of_le (b := 1) one_half_lt_one ?_
+  refine le_trans (b := n + 1 - L) ?_ ?_
+  · rw [add_comm, ← add_sub]
+    refine le_add_of_nonneg_right ?_
+    exact sub_nonneg_of_le hn
+  rw [abs_of_nonneg ?_, add_sub_assoc, add_sub_assoc]
+  refine add_le_add_left ?_ _
+  exact Nat.cast_le.mpr (le_max_left _ _)
+  rw [add_comm, add_sub_assoc]
+  refine add_nonneg zero_le_one ?_
+  refine sub_nonneg_of_le ?_
+  refine hn.trans ?_
+  exact Nat.cast_le.mpr (le_max_left _ _)
 
 instance Sequence.inst_add : Add Sequence where
   add a b := {
@@ -807,12 +838,29 @@ theorem Sequence.tendsTo_inv {a:Sequence} {L:ℝ} (ha: a.TendsTo L) (hnon: L ≠
       refine div_le_div₀ ?_ ha ?_ (mul_le_mul_of_nonneg_right hM ?_) |>.trans ?_
       pick_goal 4; rw [mul_div_cancel_right₀]
       all_goals positivity
-    sorry
+    obtain ⟨N, ha⟩ := ha (|L| / 2) (by positivity)
+    refine ⟨N, |L| / 2, by positivity, fun n hn => ?_⟩
+    calc |L| / 2
+    _ = |L| - |L| / 2 := (sub_half _).symm
+    _ ≤ |L| - |a n - L| := sub_le_sub_left (ha n hn) _
+    _ = |L| - |L - a n| := by rw [abs_sub_comm]
+    _ ≤ |L - (L - a n)| := abs_sub_abs_le_abs_sub _ _
+    _ = |a n| := by rw [sub_sub_cancel]
 
+
+lemma Sequence.TendsTo.inv {a: Sequence} {L: ℝ} (ha: a.TendsTo L) (hL: L ≠ 0)
+  : (a⁻¹).TendsTo (L⁻¹) := tendsTo_inv ha hL
+
+lemma Sequence.Convergent.inv {a: Sequence} (ha: a.Convergent) (hnon: lim a ≠ 0)
+  : (a⁻¹).Convergent := ⟨_, ha.choose_spec.inv (ha.lim_eq ▸ hnon)⟩
+
+lemma Sequence.Convergent.lim_inv {a:Sequence} (ha: a.Convergent) (hnon: lim a ≠ 0):
+  lim (a⁻¹) = (lim a)⁻¹ := by
+    rw [ha.lim_eq, (ha.inv hnon).lim_eq]
+    exact tendsTo_inj (ha.inv hnon).tendsTo (ha.tendsTo.inv (ha.lim_eq ▸ hnon))
 
 theorem Sequence.lim_inv {a:Sequence} (ha: a.Convergent) (hnon: lim a ≠ 0) :
-  (a⁻¹).Convergent ∧ lim (a⁻¹) = (lim a)⁻¹ := by
-  sorry
+  (a⁻¹).Convergent ∧ lim (a⁻¹) = (lim a)⁻¹ := ⟨ha.inv hnon, ha.lim_inv hnon⟩
 
 noncomputable instance Sequence.inst_div : Div Sequence := ⟨(· * ·⁻¹)⟩
 
@@ -825,13 +873,23 @@ theorem Sequence.div_coe (a b: ℕ → ℝ) : (a:Sequence) / (b:Sequence) = (fun
 
 /-- Theorem 6.1.19(f) (limit laws).  The `tendsTo` version is more usable than the `lim` version
     in applications. -/
-theorem Sequence.tendsTo_div {a b:Sequence} {L M:ℝ} (ha: a.TendsTo L) (hb: b.TendsTo M) (hnon: M ≠ 0) :
-    (a / b).TendsTo (L / M) := by
-  sorry
+theorem Sequence.tendsTo_div {a b:Sequence} {L M:ℝ} (ha: a.TendsTo L) (hb: b.TendsTo M) (hnon: M ≠ 0) 
+  : (a / b).TendsTo (L / M) := ha.mul (hb.inv hnon)
 
-theorem Sequence.lim_div {a b:Sequence} (ha: a.Convergent) (hb: b.Convergent) (hnon: lim b ≠ 0) :
-  (a / b).Convergent ∧ lim (a / b) = lim a / lim b := by
-  sorry
+theorem Sequence.TendsTo.div {a b:Sequence} {L M:ℝ} (ha: a.TendsTo L) (hb: b.TendsTo M) (hnon: M ≠ 0) 
+  : (a / b).TendsTo (L / M) := tendsTo_div ha hb hnon
+
+lemma Sequence.Convergent.div {a b:Sequence} (ha: a.Convergent) (hb: b.Convergent) (hnon: lim b ≠ 0) 
+  : (a / b).Convergent := ⟨_, ha.choose_spec.mul (hb.inv hnon).choose_spec⟩
+
+lemma Sequence.Convergent.lim_div {a b:Sequence} (ha: a.Convergent) (hb: b.Convergent) (hnon: lim b ≠ 0) 
+  : lim (a / b) = lim a / lim b := by 
+    rw [div_eq_mul_inv, ← hb.lim_inv hnon]
+    exact ha.lim_mul (hb.inv hnon)
+
+theorem Sequence.lim_div {a b:Sequence} (ha: a.Convergent) (hb: b.Convergent) (hnon: lim b ≠ 0) 
+  : (a / b).Convergent ∧ lim (a / b) = lim a / lim b :=
+    ⟨ha.div hb hnon, ha.lim_div hb hnon⟩
 
 instance Sequence.inst_max : Max Sequence where
   max a b := {
@@ -849,13 +907,33 @@ theorem Sequence.max_coe (a b: ℕ → ℝ) : (a:Sequence) ⊔ (b:Sequence) = (f
 
 /-- Theorem 6.1.19(g) (limit laws).  The `tendsTo` version is more usable than the `lim` version
     in applications. -/
-theorem Sequence.tendsTo_max {a b:Sequence} {L M:ℝ} (ha: a.TendsTo L) (hb: b.TendsTo M) :
-    (max a b).TendsTo (max L M) := by
-  sorry
+theorem Sequence.tendsTo_max {a b:Sequence} {L M:ℝ} (ha: a.TendsTo L) (hb: b.TendsTo M) 
+  : (max a b).TendsTo (max L M) := by
+    rw [tendsTo_iff] at *
+    intro ε εpos
+    obtain ⟨Na, ha⟩ := ha ε εpos
+    obtain ⟨Nb, hb⟩ := hb ε εpos
+    refine ⟨max Na Nb, fun n hn => ?_⟩
+    refine abs_max_sub_max_le_max _ _ _ _ |>.trans ?_
+    refine max_le ?_ ?_
+    exact ha n (le_of_max_le_left hn)
+    exact hb n (le_of_max_le_right hn)
 
-theorem Sequence.lim_max {a b:Sequence} (ha: a.Convergent) (hb: b.Convergent) :
-    (max a b).Convergent ∧ lim (max a b) = max (lim a) (lim b) := by
-  sorry
+lemma Sequence.TendsTo.max {a b:Sequence} {L M:ℝ} (ha: a.TendsTo L) (hb: b.TendsTo M) 
+  : (max a b).TendsTo (max L M) := tendsTo_max ha hb
+
+lemma Sequence.Convergent.max {a b:Sequence} (ha: a.Convergent) (hb: b.Convergent) 
+  : (a ⊔ b).Convergent := ⟨_, ha.choose_spec.max hb.choose_spec⟩
+
+lemma Sequence.Convergent.lim_max {a b:Sequence} (ha: a.Convergent) (hb: b.Convergent) 
+  : lim (a ⊔ b) = lim a ⊔ lim b := by
+    have hab := ha.max hb
+    rw [hab.lim_eq, ha.lim_eq, hb.lim_eq]
+    exact tendsTo_inj hab.tendsTo (ha.tendsTo.max hb.tendsTo)
+
+theorem Sequence.lim_max {a b:Sequence} (ha: a.Convergent) (hb: b.Convergent) 
+  : (max a b).Convergent ∧ lim (max a b) = max (lim a) (lim b) :=
+    ⟨ha.max hb, ha.lim_max hb⟩
 
 instance Sequence.inst_min : Min Sequence where
   min a b := {
@@ -872,32 +950,111 @@ theorem Sequence.min_coe (a b: ℕ → ℝ) : (a:Sequence) ⊓ (b:Sequence) = (f
   by_cases h:n ≥ 0 <;> simp [h]
 
 /-- Theorem 6.1.19(h) (limit laws) -/
-theorem Sequence.tendsTo_min {a b:Sequence} {L M:ℝ} (ha: a.TendsTo L) (hb: b.TendsTo M) :
-    (min a b).TendsTo (min L M) := by
-  sorry
+theorem Sequence.tendsTo_min {a b:Sequence} {L M:ℝ} (ha: a.TendsTo L) (hb: b.TendsTo M) 
+  : (min a b).TendsTo (min L M) := by
+    rw [tendsTo_iff] at *
+    intro ε εpos
+    obtain ⟨Na, ha⟩ := ha ε εpos
+    obtain ⟨Nb, hb⟩ := hb ε εpos
+    refine ⟨max Na Nb, fun n hn => ?_⟩
+    refine abs_min_sub_min_le_max _ _ _ _ |>.trans ?_
+    refine max_le ?_ ?_
+    exact ha n (le_of_max_le_left hn)
+    exact hb n (le_of_max_le_right hn)
 
-theorem Sequence.lim_min {a b:Sequence} (ha: a.Convergent) (hb: b.Convergent) :
-    (min a b).Convergent ∧ lim (min a b) = min (lim a) (lim b) := by
-  sorry
+lemma Sequence.TendsTo.min {a b:Sequence} {L M:ℝ} (ha: a.TendsTo L) (hb: b.TendsTo M) 
+  : (a ⊓ b).TendsTo (min L M) := tendsTo_min ha hb
+
+lemma Sequence.Convergent.min {a b:Sequence} (ha: a.Convergent) (hb: b.Convergent) 
+  : (a ⊓ b).Convergent := ⟨_, ha.choose_spec.min hb.choose_spec⟩
+
+lemma Sequence.Convergent.lim_min {a b:Sequence} (ha: a.Convergent) (hb: b.Convergent) 
+  : lim (a ⊓ b) = lim a ⊓ lim b := by
+    have hab := ha.min hb
+    rw [hab.lim_eq, ha.lim_eq, hb.lim_eq]
+    exact tendsTo_inj hab.tendsTo (ha.tendsTo.min hb.tendsTo)
+
+theorem Sequence.lim_min {a b:Sequence} (ha: a.Convergent) (hb: b.Convergent) 
+  : (min a b).Convergent ∧ lim (min a b) = min (lim a) (lim b) :=
+    ⟨ha.min hb, ha.lim_min hb⟩
 
 /-- Exercise 6.1.1 -/
-theorem Sequence.mono_if {a: ℕ → ℝ} (ha: ∀ n, a (n+1) > a n) {n m:ℕ} (hnm: m > n) : a m > a n := by
-  sorry
+theorem Sequence.mono_if {a: ℕ → ℝ} (ha: ∀ n, a (n+1) > a n) {n m:ℕ} (hnm: m > n) 
+  : a m > a n := by
+    obtain ⟨k, rfl⟩ := Nat.exists_eq_add_of_lt hnm; clear hnm
+    induction k
+    case zero => simp [ha n]
+    case succ k ih =>
+      refine ih.trans ?_
+      exact ha (n + k + 1) |>.lt
 
 /-- Exercise 6.1.3 -/
-theorem Sequence.tendsTo_of_from {a: Sequence} {c:ℝ} (m:ℤ) :
-    a.TendsTo c ↔ (a.from m).TendsTo c := by
-  sorry
+theorem Sequence.tendsTo_of_from {a: Sequence} {c:ℝ} (m:ℤ) 
+  : a.TendsTo c ↔ (a.from m).TendsTo c := by
+    rw [tendsTo_iff, tendsTo_iff]
+    peel with ε εpos
+    refine ⟨?_, ?_⟩ <;> refine fun ⟨N, hN⟩ => ⟨max N m, fun n hn => ?_⟩
+    · rw [from_apply _ (le_of_max_le_right hn)]
+      exact hN _ (le_of_max_le_left hn)
+    · specialize hN _ (le_of_max_le_left hn)
+      rwa [from_apply _ (le_of_max_le_right hn)] at hN
 
 /-- Exercise 6.1.4 -/
-theorem Sequence.tendsTo_of_shift {a: Sequence} {c:ℝ} (k:ℕ) :
-    a.TendsTo c ↔ (Sequence.mk' a.m (fun n : {n // n ≥ a.m} ↦ a (n+k))).TendsTo c := by
-  sorry
+theorem Sequence.tendsTo_of_shift {a: Sequence} {c:ℝ} (k:ℕ) 
+  : a.TendsTo c ↔ (Sequence.mk' a.m (fun n : {n // n ≥ a.m} ↦ a (n+k))).TendsTo c := by
+    rw [tendsTo_iff, tendsTo_iff]
+    peel with ε εpos
+    refine ⟨?_, ?_⟩ <;> refine fun ⟨N, hN⟩ => ?_
+    · refine ⟨max N a.m, fun n hn => ?_⟩
+      rw [mk_apply _ (le_of_max_le_right hn)]
+      refine hN _ ((le_of_max_le_left hn).trans ?_)
+      exact le_add_of_nonneg_right (Nat.cast_nonneg _)
+    refine ⟨(max N a.m) + k, fun n hn => ?_⟩
+    replace hn := Int.le_sub_right_of_add_le hn
+    convert hN (n - k) (le_of_max_le_left hn) using 3
+    simp [le_of_max_le_right hn]
 
 /-- Exercise 6.1.7 -/
-theorem Sequence.isBounded_of_rat (a: Chapter5.Sequence) :
-    a.IsBounded ↔ (a:Sequence).IsBounded := by
-  sorry
+theorem Sequence.isBounded_of_rat (a: Chapter5.Sequence) 
+  : a.IsBounded ↔ (a:Sequence).IsBounded := by
+    unfold Chapter5.Sequence.IsBounded Sequence.IsBounded
+    constructor
+    all_goals
+    · rintro ⟨M', M'nonneg, hM'⟩
+      obtain ⟨M, hM, _⟩ := exists_rat_btwn (lt_add_one M')
+      refine ⟨M, ?_, ?_⟩
+      · simpa using M'nonneg.trans hM.le
+      intro n
+      simpa [← Rat.cast_abs] using hM' n |>.trans hM.le
+
+example {a b: ℝ} : a + b - 2 * min a b = |a - b| := by
+  wlog hab: a ≤ b
+  · specialize this (le_of_not_ge hab)
+    simpa only [add_comm, min_comm, abs_sub_comm] using this
+  rw [min_eq_left hab, abs_sub_comm, abs_of_nonneg (sub_nonneg.mpr hab)]
+  grind
+
+
+abbrev Sequence.const (m : ℤ) (x: ℝ) : Sequence where
+  m := m
+  seq n := if n < m then 0 else x
+  vanish n hn := by rw [if_pos hn]
+
+lemma Sequence.const_apply (m: ℤ) (x: ℝ) {n: ℤ} (hn: m ≤ n) : const m x n = x := by
+  simp [hn]
+
+theorem Sequence.const_tendsTo (m: ℤ) (x: ℝ) : (const m x).TendsTo x := by
+  rw [tendsTo_iff]
+  refine fun ε εpos => ⟨max 0 m, fun n hn => ?_⟩
+  lift n to ℕ using (le_of_max_le_left hn)
+  rw [Sequence.const_apply _ _ (le_of_max_le_right hn), sub_self, abs_zero]
+  exact εpos.le
+
+lemma Sequence.const_convergent (m: ℤ) (x: ℝ) : (const m x).Convergent := ⟨_, const_tendsTo _ _⟩
+lemma Sequence.const_lim_eq (m: ℤ) (x: ℝ) : lim (const m x) = x := (const_tendsTo _ _).lim_eq
+
+theorem Sequence.inv_apply_eq_one_div_apply (a: Sequence) {n} (hn: a.m ≤ n) : a⁻¹ n = ((const a.m 1) / a) n := by
+  rw [inv_apply, div_apply, const_apply _ _ hn, one_div]
 
 /-- Exercise 6.1.9 -/
 theorem Sequence.lim_div_fail :
@@ -905,11 +1062,64 @@ theorem Sequence.lim_div_fail :
     ∧ b.Convergent
     ∧ lim b = 0
     ∧ ¬ ((a / b).Convergent ∧ lim (a / b) = lim a / lim b) := by
-  sorry
+  suffices ∃(b: Sequence), b.TendsTo 0 ∧ ¬((b⁻¹).Convergent) by
+    obtain ⟨b, hb, hb'⟩ := this
+    refine ⟨.const b.m 1, b, const_convergent _ _, ⟨_, hb⟩, hb.lim_eq, ?_⟩
+    refine not_and'.mpr fun _ => ?_
+    contrapose! hb' with h
+    rw [convergent_iff] at *
+    peel h with L ε εpos h
+    obtain ⟨N, h⟩ := h
+    refine ⟨max N b.m, fun n hn => ?_⟩
+    specialize h n (le_of_max_le_left hn)
+    rwa [inv_apply_eq_one_div_apply _ (le_of_max_le_right hn)]
+  refine ⟨fun (n: ℕ) => (1 / (↑n + 1): ℝ), ?_, ?_⟩
+  · rw [tendsTo_iff]
+    intro ε εpos
+    obtain ⟨N, hN⟩ := exists_nat_ge (1 / ε)
+    refine ⟨N, fun n hn => ?_⟩
+    lift n to ℕ using (Nat.cast_nonneg _ |>.trans hn)
+    replace hn := Nat.cast_le.mp hn
+    rw [coe_apply, sub_zero, 
+      abs_of_pos (one_div_pos.mpr (Nat.cast_add_one_pos n)),
+      one_div_le (Nat.cast_add_one_pos n) εpos,
+    ]
+    refine hN.trans (Nat.cast_le.mpr hn) |>.trans ?_
+    exact lt_add_one _ |>.le
+  rw [convergent_iff]
+  push_neg
+  refine fun L => ⟨1/2, one_half_pos, fun N => ?_⟩
+  obtain ⟨NL, h⟩ := exists_nat_gt L
+  refine ⟨max N (NL + 1), le_max_left _ _, ?_⟩
+  obtain ⟨N', hN'⟩ := CanLift.prf (max N (NL + 1)) (β := ℕ) (by omega)
+  have : 0 < N' - L := by
+    refine sub_pos.mpr ?_
+    refine h.trans ?_
+    conv => rhs; rw [← Int.cast_natCast, hN', Int.cast_max]
+    refine lt_max_of_lt_right ?_
+    simp
+  conv => rhs; rw [← hN', inv_apply, coe_apply, one_div, inv_inv, add_comm, add_sub_assoc,
+    abs_of_pos (add_pos zero_lt_one this)]
+  exact (one_half_lt_one).trans (lt_add_of_pos_right _ this)
 
-theorem Chapter5.Sequence.IsCauchy_iff (a:Chapter5.Sequence) :
-    a.IsCauchy ↔ ∀ ε > (0:ℝ), ∃ N ≥ a.n₀, ∀ n ≥ N, ∀ m ≥ N, |a n - a m| ≤ ε := by
-  sorry
+theorem Chapter5.Sequence.IsCauchy_iff (a:Chapter5.Sequence) 
+  : a.IsCauchy ↔ ∀ ε > (0:ℝ), ∃ N ≥ a.n₀, ∀ n ≥ N, ∀ m ≥ N, |a n - a m| ≤ ε := by
+    constructor
+    · intro ha ε' ε'pos
+      obtain ⟨ε, εpos⟩ := exists_pos_rat_lt ε'pos
+      peel ha ε εpos.left with N hN ha
+      intro j hj k hk
+      specialize ha j (by simp [hj, hN]) k (by simp [hk, hN])
+      refine εpos.2.le.trans' (Rat.cast_le.mpr ?_)
+      simpa [hj, hk, hN] using ha
+    intro ha ε εpos
+    specialize ha ε (Rat.cast_pos.mpr εpos)
+    peel ha with N hN ha
+    intro j hj k hk
+    specialize ha j (le_of_max_le_right hj) k (le_of_max_le_right hk)
+    simp [hj, hk]
+    exact Rat.cast_le.mp ha
+
 end Chapter6
 
 -- additional definitions for exercise 6.1.10
@@ -925,7 +1135,24 @@ abbrev Chapter5.Sequence.RatEquiv (a b: ℕ → ℚ) : Prop :=
 
 namespace Chapter6
 /-- Exercise 6.1.10 -/
-theorem Chapter5.Sequence.equiv_rat (a b: ℕ → ℚ) :
-  Chapter5.Sequence.Equiv a b ↔ Chapter5.Sequence.RatEquiv a b := by sorry
+theorem Chapter5.Sequence.equiv_rat (a b: ℕ → ℚ) 
+  : Chapter5.Sequence.Equiv a b ↔ Chapter5.Sequence.RatEquiv a b := by
+    rw [Chapter5.Sequence.equiv_iff]
+    constructor
+    · intro hab ε' ε'pos
+      obtain ⟨ε, εpos, hε⟩ := exists_pos_rat_lt ε'pos
+      obtain ⟨N, hab⟩ := hab ε εpos
+      refine ⟨N, fun n hn _ => hε.le.trans' ?_⟩
+      simp at hn
+      lift n to ℕ using (Nat.cast_nonneg _ |>.trans hn)
+      simp [hn, dist, ← Rat.cast_sub, ← Rat.cast_abs]
+      exact hab n (Nat.cast_le.mp hn)
+    rintro hab ε εpos
+    obtain ⟨N, hab⟩ := hab ε (Rat.cast_pos.mpr εpos)
+    refine ⟨N.toNat, fun n hn => ?_⟩
+    specialize hab n
+    replace hn : N ≤ n := Int.toNat_le.mp hn
+    simp [hn, dist, ← Rat.cast_sub, ← Rat.cast_abs] at hab
+    assumption
 
 end Chapter6

@@ -24,7 +24,7 @@ exponentiation which in the epilogue to this chapter we will show is identical t
 
 namespace Chapter6
 
-open Sequence Real
+open Sequence Real _root_.Real
 
 /-- Lemma 6.7.1 (Continuity of exponentiation) -/
 lemma ratPow_continuous {x α:ℝ} (hx: x > 0) {q: ℕ → ℚ}
