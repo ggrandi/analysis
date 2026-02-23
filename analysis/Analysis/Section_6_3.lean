@@ -23,36 +23,120 @@ namespace Chapter6
 /-- Definition 6.3.1 -/
 noncomputable abbrev Sequence.sup (a:Sequence) : EReal := sSup { x | ∃ n ≥ a.m, x = a n }
 
+theorem Sequence.sup_eq (a: Sequence) : a.sup = sSup (Real.toEReal '' { x | ∃ n ≥ a.m, x = a n }) := by
+  refine congrArg (sSup ·) ?_
+  simp [Set.ext_iff, eq_comm]
+
 /-- Definition 6.3.1 -/
 noncomputable abbrev Sequence.inf (a:Sequence) : EReal := sInf { x | ∃ n ≥ a.m, x = a n }
 
-/-- Example 6.3.3 -/
-example : ((fun (n:ℕ) ↦ (-1:ℝ)^(n+1)):Sequence).sup = 1 := by sorry
+theorem Sequence.inf_eq (a: Sequence) : a.inf = sInf (Real.toEReal '' { x | ∃ n ≥ a.m, x = a n }) := by
+  refine congrArg (sInf ·) ?_
+  simp [Set.ext_iff, eq_comm]
 
 /-- Example 6.3.3 -/
-example : ((fun (n:ℕ) ↦ (-1:ℝ)^(n+1)):Sequence).inf = -1 := by sorry
+example : ((fun (n:ℕ) ↦ (-1:ℝ)^(n+1)):Sequence).sup = 1 := by
+  simp [Sequence.sup]
+  refine le_antisymm (sSup_le ?_) (le_sSup ⟨1, zero_le_one, by simp⟩)
+  rintro _ ⟨n, hn, rfl⟩
+  lift n to ℕ using hn
+  rw [← EReal.coe_one, EReal.coe_le_coe_iff, if_pos (Nat.cast_nonneg n), Int.toNat_natCast]
+  suffices (-1: ℝ)^(n+1) = 1 ∨ (-1: ℝ)^(n+1) = -1 from this.elim
+    (·.symm ▸ le_refl _)
+    (·.symm ▸ by norm_num)
+  induction n
+  case zero => simp
+  case succ n ih =>
+    conv => congr <;> rw [pow_succ]
+    obtain (ih|ih) := ih
+    · rw [ih, one_mul]; exact Or.inr rfl
+    · rw [ih, neg_one_mul, neg_neg]; exact Or.inl rfl
+
+
+/-- Example 6.3.3 -/
+example : ((fun (n:ℕ) ↦ (-1:ℝ)^(n+1)):Sequence).inf = -1 := by
+  simp [Sequence.inf]
+  refine le_antisymm (sInf_le ⟨0, le_refl _, by simp⟩) (le_sInf ?_)
+  rintro _ ⟨n, hn, rfl⟩
+  lift n to ℕ using hn
+  rw [← EReal.coe_one, ← EReal.coe_neg, EReal.coe_le_coe_iff, if_pos (Nat.cast_nonneg n), Int.toNat_natCast]
+  suffices (-1: ℝ)^(n+1) = 1 ∨ (-1: ℝ)^(n+1) = -1 from this.elim
+    (·.symm ▸ by linarith)
+    (·.symm ▸ le_refl _)
+  induction n
+  case zero => simp
+  case succ n ih =>
+    conv => congr <;> rw [pow_succ]
+    obtain (ih|ih) := ih
+    · rw [ih, one_mul]; exact Or.inr rfl
+    · rw [ih, neg_one_mul, neg_neg]; exact Or.inl rfl
 
 /-- Example 6.3.4 / Exercise 6.3.1 -/
-example : ((fun (n:ℕ) ↦ 1/((n:ℝ)+1)):Sequence).sup = 1 := by sorry
+example : ((fun (n:ℕ) ↦ 1/((n:ℝ)+1)):Sequence).sup = 1 := by
+  simp [Sequence.sup]
+  refine le_antisymm (sSup_le ?_) (le_sSup_iff.mpr ?_)
+  · rintro _ ⟨n, hn, rfl⟩
+    lift n to ℕ using hn
+    rw [← EReal.coe_one, EReal.coe_le_coe_iff, if_pos (Nat.cast_nonneg n), Int.toNat_natCast]
+    refine inv_le_one_of_one_le₀ ?_
+    exact le_add_of_nonneg_left <| Nat.cast_nonneg _
+  rintro b hb
+  by_contra! hb'
+  sorry
 
 /-- Example 6.3.4 / Exercise 6.3.1 -/
-example : ((fun (n:ℕ) ↦ 1/((n:ℝ)+1)):Sequence).inf = 0 := by sorry
+example : ((fun (n:ℕ) ↦ 1/((n:ℝ)+1)):Sequence).inf = 0 := by
+  simp [Sequence.inf]
+  refine le_antisymm (?_) (le_sInf ?_)
+  · refine sInf_le_iff.mpr ?_
+    rintro b hb
+    by_contra! hb'
+    sorry
+  rintro _ ⟨n, hn, rfl⟩
+  rw [if_pos hn]
+  simpa using Nat.cast_add_one_pos _ |>.le
 
 /-- Example 6.3.5 -/
-example : ((fun (n:ℕ) ↦ (n+1:ℝ)):Sequence).sup = ⊤ := by sorry
+example : ((fun (n:ℕ) ↦ (n+1:ℝ)):Sequence).sup = ⊤ := by
+  rw [Sequence.sup_eq]
+  refine EReal.sup_of_unbounded_nonempty ?_ ?_
+  · by_contra! hx
+    obtain ⟨y, hy⟩ := hx
+    obtain ⟨n, hn⟩ := exists_nat_gt y
+    refine hn.trans (lt_add_one _) |>.not_ge ?_
+    exact hy ⟨n, Nat.cast_nonneg _, rfl⟩
+  exact ⟨1, 0, le_refl _, by grind⟩
+  
 
 /-- Example 6.3.5 -/
-example : ((fun (n:ℕ) ↦ (n+1:ℝ)):Sequence).inf = 1 := by sorry
+example : ((fun (n:ℕ) ↦ (n+1:ℝ)):Sequence).inf = 1 := by
+  refine le_antisymm ?_ ?_
+  · exact sInf_le ⟨0, le_refl _, by simp⟩
+  refine le_sInf ?_
+  rintro _ ⟨n, hn, rfl⟩
+  simp [hn]
+  sorry
+
 
 abbrev Sequence.BddAboveBy (a:Sequence) (M:ℝ) : Prop := ∀ n ≥ a.m, a n ≤ M
 
 abbrev Sequence.BddAbove (a:Sequence) : Prop := ∃ M, a.BddAboveBy M
 
+theorem Sequence.BddAbove_iff {a:Sequence}  : a.BddAbove ↔ ∃ M, ∀ n ≥ a.m, a n ≤ M := Iff.rfl
+
 abbrev Sequence.BddBelowBy (a:Sequence) (M:ℝ) : Prop := ∀ n ≥ a.m, a n ≥ M
 
 abbrev Sequence.BddBelow (a:Sequence) : Prop := ∃ M, a.BddBelowBy M
 
-theorem Sequence.bounded_iff (a:Sequence) : a.IsBounded ↔ a.BddAbove ∧ a.BddBelow := by sorry
+theorem Sequence.BddBelow_iff {a:Sequence}  : a.BddBelow ↔ ∃ M, ∀ n ≥ a.m, M ≤ a n := Iff.rfl
+
+theorem Sequence.bounded_iff (a:Sequence) : a.IsBounded ↔ a.BddAbove ∧ a.BddBelow := by
+  simp_rw [isBounded_iff, BddAbove_iff, BddBelow_iff, abs_le]
+  constructor
+  · rintro ⟨M, Mnonneg, hM⟩
+    refine ⟨⟨M, fun n _ => hM n |>.2⟩, ⟨-M, fun n _ => hM n |>.1⟩⟩
+  sorry
+
 
 theorem Sequence.sup_of_bounded {a:Sequence} (h: a.IsBounded) : a.sup.IsFinite := by sorry
 
